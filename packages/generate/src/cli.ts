@@ -19,6 +19,7 @@ import { generateQueryBuilder } from "./edgeql-js";
 import { runInterfacesGenerator } from "./interfaces";
 import { type Target, exitWithError } from "./genutil";
 import { generateQueryFiles } from "./queries";
+import { generateFragmentManifest } from "./fragments";
 
 const { path, readFileUtf8, exists } = adapter;
 
@@ -26,12 +27,14 @@ enum Generator {
   QueryBuilder = "edgeql-js",
   Queries = "queries",
   Interfaces = "interfaces",
+  Fragemnts = "fragments",
 }
 
 const availableGeneratorsHelp = `
 Available generators:
  - edgeql-js (query builder)
  - queries (query files)
+ - fragments
  - interfaces`;
 
 const run = async () => {
@@ -63,6 +66,7 @@ const run = async () => {
       break;
     case Generator.Queries:
       break;
+    case Generator.Fragemnts:
     case Generator.Interfaces:
       options.target = "ts";
       break;
@@ -232,7 +236,6 @@ const run = async () => {
         exitWithError(
           `Watch mode is not supported for generator "${generator}"`
         );
-        break;
       case "--force-overwrite":
         options.forceOverwrite = true;
         break;
@@ -382,6 +385,14 @@ Run this command inside an EdgeDB project directory or specify the desired targe
           schemaDir,
         });
         break;
+      case Generator.Fragemnts:
+        await generateFragmentManifest({
+          options,
+          client,
+          root: projectRoot,
+          schemaDir,
+        });
+        break;
     }
   } catch (e) {
     exitWithError((e as Error).message);
@@ -403,6 +414,7 @@ COMMANDS:
     queries         Generate typed functions from .edgeql files
     edgeql-js       Generate query builder
     interfaces      Generate TS interfaces for schema types
+    fragments       TODO
 
 
 CONNECTION OPTIONS:

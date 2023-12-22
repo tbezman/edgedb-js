@@ -1,4 +1,4 @@
-import {run} from "../../compileForDeno.ts";
+import { run } from "../../compileForDeno.ts";
 
 await run({
   sourceDir: "./src",
@@ -6,6 +6,10 @@ await run({
   sourceFilter: (path) => !/src\/syntax/.test(path),
   pathRewriteRules: [{ match: /src\//, replace: "./" }],
   importRewriteRules: [
+    {
+      match: /^ts-morph$/,
+      replace: "https://deno.land/x/ts_morph/mod.ts",
+    },
     {
       match: /^@iarna\/toml$/,
       replace: "https://deno.land/std@0.208.0/toml/mod.ts",
