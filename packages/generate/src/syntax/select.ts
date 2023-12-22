@@ -35,6 +35,7 @@ import type {
   BaseType,
   ExclusiveTuple,
   orLiteralValue,
+  setToTsType,
 } from "./typesystem";
 
 import {
@@ -865,6 +866,51 @@ function $shape(_a: unknown, b: (...args: any) => any) {
   return b;
 }
 export { $shape as shape };
+
+export type FragmentReturnType<
+  Expr extends ObjectTypeExpression,
+  Shape extends objectTypeToSelectShape<Expr["__element__"]> &
+    SelectModifiers<Expr["__element__"]>
+> = {
+  type_: string;
+  shape: () => (scope: unknown) => Readonly<Shape>;
+  pull: (obj: any) => { id: string } & setToTsType<{
+    __element__: ObjectType<
+      `${Expr["__element__"]["__name__"]}`, // _shape
+      Expr["__element__"]["__pointers__"],
+      Omit<normaliseShape<Readonly<Shape>>, SelectModifierNames>
+    >;
+    __cardinality__: typeof Cardinality.One;
+  }>;
+};
+
+export function fragment<
+  FragmentName extends string,
+  Expr extends ObjectTypeExpression,
+  Shape extends objectTypeToSelectShape<Expr["__element__"]> &
+    SelectModifiers<Expr["__element__"]>
+>(
+  fragmentName: FragmentName,
+  expr: Expr,
+  _shape: (
+    scope: $scopify<Expr["__element__"]> &
+      $linkPropify<{
+        [k in keyof Expr]: k extends "__cardinality__"
+          ? Cardinality.One
+          : Expr[k];
+      }>
+  ) => Readonly<Shape>
+): FragmentReturnType<Expr, Shape> {
+  return {
+    type_: expr.__element__.__name__,
+    shape() {
+      return $shape(expr, _shape);
+    },
+    pull(obj) {
+      return obj["__" + fragmentName];
+    },
+  };
+}
 
 export function select<Expr extends ObjectTypeExpression>(
   expr: Expr
