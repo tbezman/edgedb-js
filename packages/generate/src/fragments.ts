@@ -19,14 +19,18 @@ export function generateFragmentManifest(params: {
 
   const files = project.getSourceFiles();
 
-  const manifest = project.createSourceFile("dist/manifest.ts", undefined, {
-    overwrite: true,
-  });
+  const manifest = project.createSourceFile(
+    path.join(params.schemaDir, "manifest.ts"),
+    undefined,
+    {
+      overwrite: true,
+    }
+  );
 
   manifest.addImportDeclaration({
     defaultImport: "e",
     namedImports: [{ isTypeOnly: true, name: "Cardinality" }],
-    moduleSpecifier: "../dbschema/edgeql-js",
+    moduleSpecifier: "./edgeql-js",
   });
 
   manifest.addTypeAlias({
@@ -88,16 +92,16 @@ export function generateFragmentManifest(params: {
       "SelectModifiers",
       "objectTypeToSelectShape",
     ],
-    moduleSpecifier: "../dbschema/edgeql-js/select",
+    moduleSpecifier: "./edgeql-js/select",
   });
 
   manifest.addImportDeclaration({
-    moduleSpecifier: "../dbschema/edgeql-js/typesystem",
+    moduleSpecifier: "./edgeql-js/typesystem",
     namedImports: ["ObjectType", "$scopify", "ObjectTypeExpression"],
   });
 
   manifest.addImportDeclaration({
-    moduleSpecifier: "../dbschema/edgeql-js/syntax",
+    moduleSpecifier: "./edgeql-js/syntax",
     namedImports: ["$linkPropify"],
   });
 
