@@ -41,7 +41,7 @@ export function useFragment<F extends FragmentReturnType<any, any>>(
 
       return cache;
     });
-  }, [ref, setCache, data, fragment.type_]);
+  }, []);
 
   const resultFromCache = readFromCache({
     type,
