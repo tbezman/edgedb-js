@@ -868,13 +868,18 @@ function $shape(_a: unknown, b: (...args: any) => any) {
 export { $shape as shape };
 
 export type FragmentReturnType<
+  FragmentName extends string,
   Expr extends ObjectTypeExpression,
   Shape extends objectTypeToSelectShape<Expr["__element__"]> &
     SelectModifiers<Expr["__element__"]>
 > = {
   type_: string;
   shape: () => (scope: unknown) => Readonly<Shape>;
-  pull: (obj: any) => { id: string } & setToTsType<{
+  pull: (obj: {
+    $fragmentSpreads: {
+      [key in FragmentName]: true;
+    };
+  }) => { id: string } & setToTsType<{
     __element__: ObjectType<
       `${Expr["__element__"]["__name__"]}`, // _shape
       Expr["__element__"]["__pointers__"],
@@ -900,13 +905,14 @@ export function fragment<
           : Expr[k];
       }>
   ) => Readonly<Shape>
-): FragmentReturnType<Expr, Shape> {
+): FragmentReturnType<FragmentName, Expr, Shape> {
   return {
     type_: expr.__element__.__name__,
     shape() {
       return $shape(expr, _shape);
     },
     pull(obj) {
+      // @ts-expect-error - this is fine because of fragment masking
       return obj["__" + fragmentName];
     },
   };
