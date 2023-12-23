@@ -20,7 +20,7 @@ export function generateFragmentManifest(params: {
   const files = project.getSourceFiles();
 
   const manifest = project.createSourceFile(
-    path.join(params.schemaDir, "manifest.ts"),
+    path.join(params.schemaDir, "edgeql-js", "manifest.ts"),
     undefined,
     {
       overwrite: true,

@@ -27,14 +27,12 @@ enum Generator {
   QueryBuilder = "edgeql-js",
   Queries = "queries",
   Interfaces = "interfaces",
-  Fragemnts = "fragments",
 }
 
 const availableGeneratorsHelp = `
 Available generators:
  - edgeql-js (query builder)
  - queries (query files)
- - fragments
  - interfaces`;
 
 const run = async () => {
@@ -66,7 +64,6 @@ const run = async () => {
       break;
     case Generator.Queries:
       break;
-    case Generator.Fragemnts:
     case Generator.Interfaces:
       options.target = "ts";
       break;
@@ -368,6 +365,12 @@ Run this command inside an EdgeDB project directory or specify the desired targe
           root: projectRoot,
           schemaDir,
         });
+        await generateFragmentManifest({
+          options,
+          client,
+          root: projectRoot,
+          schemaDir,
+        });
         break;
       case Generator.Queries:
         await generateQueryFiles({
@@ -379,14 +382,6 @@ Run this command inside an EdgeDB project directory or specify the desired targe
         break;
       case Generator.Interfaces:
         await runInterfacesGenerator({
-          options,
-          client,
-          root: projectRoot,
-          schemaDir,
-        });
-        break;
-      case Generator.Fragemnts:
-        await generateFragmentManifest({
           options,
           client,
           root: projectRoot,
