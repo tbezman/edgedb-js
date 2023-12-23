@@ -30,7 +30,7 @@ export function generateFragmentManifest(params: {
   manifest.addImportDeclaration({
     defaultImport: "e",
     namedImports: [{ isTypeOnly: true, name: "Cardinality" }],
-    moduleSpecifier: "./edgeql-js",
+    moduleSpecifier: "./index",
   });
 
   manifest.addTypeAlias({
@@ -92,16 +92,16 @@ export function generateFragmentManifest(params: {
       "SelectModifiers",
       "objectTypeToSelectShape",
     ],
-    moduleSpecifier: "./edgeql-js/select",
+    moduleSpecifier: "./select",
   });
 
   manifest.addImportDeclaration({
-    moduleSpecifier: "./edgeql-js/typesystem",
+    moduleSpecifier: "./typesystem",
     namedImports: ["ObjectType", "$scopify", "ObjectTypeExpression"],
   });
 
   manifest.addImportDeclaration({
-    moduleSpecifier: "./edgeql-js/syntax",
+    moduleSpecifier: "./syntax",
     namedImports: ["$linkPropify"],
   });
 
