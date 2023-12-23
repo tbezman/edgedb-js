@@ -16,7 +16,8 @@
   "main": "./dist/react/src/index.js",
   "types": "./dist/react/src/index.d.ts",
   "scripts": {
-    "build": "tsc --project tsconfig.json"
+    "build": "tsc --project tsconfig.json",
+    "generate": "../generate/dist/cli.js fragments && ../generate/dist/cli.js edgeql-js"
   },
   "devDependencies": {
     "@types/node": "^20.8.4",
