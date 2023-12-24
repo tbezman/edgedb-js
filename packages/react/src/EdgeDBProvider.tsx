@@ -21,7 +21,7 @@ const clone = rfdc();
 
 export type EdgeDBCache = Record<string, Record<string, unknown>>;
 
-type EdgeDBContextType = {
+export type EdgeDBContextType = {
   spec: SpecType;
   fragmentMap: FragmentMap;
 
