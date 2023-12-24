@@ -847,20 +847,24 @@ export const $existingScopes = new Set<
   Expression<TypeSet<BaseType, Cardinality>>
 >();
 
+type ScopeParam<Expr extends ObjectTypeExpression> = $scopify<
+  Expr["__element__"]
+> &
+  $linkPropify<{
+    [k in keyof Expr]: k extends "__cardinality__" ? Cardinality.One : Expr[k];
+  }>;
+
+type ShapeExtends<Expr extends ObjectTypeExpression> = objectTypeToSelectShape<
+  Expr["__element__"]
+> &
+  SelectModifiers<Expr["__element__"]>;
+
 function $shape<
   Expr extends ObjectTypeExpression,
-  Shape extends objectTypeToSelectShape<Expr["__element__"]> &
-    SelectModifiers<Expr["__element__"]> // <Expr["__element__"]>
+  Shape extends ShapeExtends<Expr> // <Expr["__element__"]>
 >(
   expr: Expr,
-  _shape: (
-    scope: $scopify<Expr["__element__"]> &
-      $linkPropify<{
-        [k in keyof Expr]: k extends "__cardinality__"
-          ? Cardinality.One
-          : Expr[k];
-      }>
-  ) => Readonly<Shape>
+  _shape: (scope: ScopeParam<Expr>) => Readonly<Shape>
 ): (scope: unknown) => Readonly<Shape>;
 function $shape(_a: unknown, b: (...args: any) => any) {
   return b;
@@ -869,8 +873,7 @@ export { $shape as shape };
 
 type ShapeGetter<
   Expr extends ObjectTypeExpression,
-  Shape extends objectTypeToSelectShape<Expr["__element__"]> &
-    SelectModifiers<Expr["__element__"]>
+  Shape extends ShapeExtends<Expr>
 > = (scope: any) => Readonly<Shape>;
 
 export type GeneratedFragmentType = ShapeGetter<
@@ -890,9 +893,8 @@ export type GeneratedFragmentType = ShapeGetter<
 
 export type FragmentPullReturnType<
   Expr extends ObjectTypeExpression,
-  Shape extends objectTypeToSelectShape<Expr["__element__"]> &
-    SelectModifiers<Expr["__element__"]>
-> = { id: string } & setToTsType<{
+  Shape extends ShapeExtends<Expr>
+> = setToTsType<{
   __element__: ObjectType<
     `${Expr["__element__"]["__name__"]}`, // _shape
     Expr["__element__"]["__pointers__"],
@@ -908,8 +910,7 @@ export type NormalizeForCache<FPRT extends FragmentPullReturnType<any, any>> = {
 export type FragmentReturnType<
   FragmentName extends string,
   Expr extends ObjectTypeExpression,
-  Shape extends objectTypeToSelectShape<Expr["__element__"]> &
-    SelectModifiers<Expr["__element__"]>
+  Shape extends ShapeExtends<Expr>
 > = {
   type_: string;
   shape: () => (scope: unknown) => Readonly<Shape>;
@@ -921,19 +922,11 @@ export type FragmentReturnType<
 export function fragment<
   FragmentName extends string,
   Expr extends ObjectTypeExpression,
-  Shape extends objectTypeToSelectShape<Expr["__element__"]> &
-    SelectModifiers<Expr["__element__"]>
+  Shape extends ShapeExtends<Expr>
 >(
   fragmentName: FragmentName,
   expr: Expr,
-  _shape: (
-    scope: $scopify<Expr["__element__"]> &
-      $linkPropify<{
-        [k in keyof Expr]: k extends "__cardinality__"
-          ? Cardinality.One
-          : Expr[k];
-      }>
-  ) => Readonly<Shape>
+  _shape: (scope: ScopeParam<Expr>) => Readonly<Shape>
 ): FragmentReturnType<FragmentName, Expr, Shape> {
   return {
     type_: expr.__element__.__name__,
@@ -962,8 +955,7 @@ export function select<Expr extends TypeSet>(
 ): $expr_Select<stripSet<Expr>>;
 export function select<
   Expr extends ObjectTypeExpression,
-  Shape extends objectTypeToSelectShape<Expr["__element__"]> &
-    SelectModifiers<Expr["__element__"]>,
+  Shape extends ShapeExtends<Expr>,
   Modifiers extends UnknownSelectModifiers = Pick<Shape, SelectModifierNames>
 >(
   expr: Expr,
