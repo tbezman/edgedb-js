@@ -1,8 +1,5 @@
-import e from "../dbschema/edgeql-js";
 import { bench } from "@arktype/attest";
-import type { CacheTestUserFragment } from "../dbschema/edgeql-js/manifest";
-import { CacheTestUserFragmentRef } from "../dbschema/edgeql-js/manifest";
-import { CacheTestPostFragment } from "../dbschema/edgeql-js/manifest";
+import { CacheTestUserFragment } from "../dbschema/edgeql-js/manifest";
 import type {
   EdgeDBContextType,
   NonFragmentValues,
@@ -10,16 +7,10 @@ import type {
   NormalizeForCache,
 } from "./EdgeDBProvider";
 import type { FragmentPullReturnType } from "../dbschema/edgeql-js/select";
-// Combinatorial template literals often result in expensive types- let's benchmark this one!
-type makeComplexType<s extends string> = s extends `${infer head}${infer tail}`
-  ? head | tail | makeComplexType<tail>
-  : s;
 
 type Prettify<T> = {
   [key in keyof T]: Prettify<T[key]>;
 } & {};
-
-type OmitNever<T> = { [K in keyof T as T[K] extends never ? never : K]: T[K] };
 
 bench("bench type", () => {
   const context: EdgeDBContextType = {} as EdgeDBContextType;
@@ -33,6 +24,25 @@ bench("bench type", () => {
   type NonFragmentValuesTest = Prettify<NonFragmentValues<RawFPRT>>;
 
   type Normalized = Prettify<NormalizeForCache<RawFPRT>>;
+
+  // This is an inline snapshot that will be populated or compared when you run the file
+}).types([169, "instantiations"]);
+
+bench("full use case", () => {
+  const context: EdgeDBContextType = {} as EdgeDBContextType;
+
+  context.updateFragment(CacheTestUserFragment, "some-uuid", (previous) => {
+    return {
+      ...previous,
+      posts: [
+        ...previous.posts,
+        {
+          id: "some-uuid",
+          title: "Some title here",
+        },
+      ],
+    };
+  });
 
   // This is an inline snapshot that will be populated or compared when you run the file
 }).types([169, "instantiations"]);
