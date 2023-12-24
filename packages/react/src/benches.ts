@@ -26,7 +26,7 @@ bench("bench type", () => {
   type Normalized = Prettify<NormalizeForCache<RawFPRT>>;
 
   // This is an inline snapshot that will be populated or compared when you run the file
-}).types([169, "instantiations"]);
+}).types([14171, "instantiations"]);
 
 bench("full use case", () => {
   const context: EdgeDBContextType = {} as EdgeDBContextType;
@@ -45,4 +45,4 @@ bench("full use case", () => {
   });
 
   // This is an inline snapshot that will be populated or compared when you run the file
-}).types([169, "instantiations"]);
+}).types([24835, "instantiations"]);
