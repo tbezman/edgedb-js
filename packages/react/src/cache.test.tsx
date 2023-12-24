@@ -180,10 +180,7 @@ describe("cache", () => {
           ...previous,
           posts: [
             ...previous.posts,
-            {
-              id: mockNewPostUuid,
-              title: "new post",
-            },
+            { id: mockNewPostUuid, title: "new post" },
           ],
         }));
       }, []);

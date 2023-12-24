@@ -57,15 +57,10 @@ type FragmentValues<FPRT extends FragmentPullReturnType<any, any>> = {
         : never;
     }[keyof FPRT];
 
-export type NormalizeForCache<FPRT extends FragmentPullReturnType<any, any>> = {
-  [key in keyof FPRT]: FPRT[key] extends Array<infer T>
-    ? T extends { id: string }
-      ? Array<NormalizeForCache<T>>
-      : never
-    : key extends `__${string}`
-    ? never
-    : FPRT[key];
-} & FragmentValues<FPRT>;
+type FirstPart<FPRT extends FragmentPullReturnType<any, any>> = FPRT;
+
+export type NormalizeForCache<FPRT extends FragmentPullReturnType<any, any>> =
+  FirstPart<FPRT> & FragmentValues<FPRT>;
 
 export function EdgeDBProvider({
   spec,
