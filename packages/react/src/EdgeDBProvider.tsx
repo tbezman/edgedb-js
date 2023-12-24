@@ -28,16 +28,15 @@ export type EdgeDBContextType = {
   cache: EdgeDBCache;
   setCache: Dispatch<SetStateAction<EdgeDBCache>>;
 
-  updateFragment: <F extends GeneratedFragmentType>(
-    fragment: F,
-    id: string,
-    updater: (
-      previous: NormalizeForCache<
-        FragmentPullReturnType<F["expr"], ReturnType<F["raw"]>>
-      >
-    ) => NormalizeForCache<
+  updateFragment: <
+    F extends GeneratedFragmentType,
+    Normalized = NormalizeForCache<
       FragmentPullReturnType<F["expr"], ReturnType<F["raw"]>>
     >
+  >(
+    fragment: F,
+    id: string,
+    updater: (previous: Normalized) => Normalized
   ) => void;
 };
 
@@ -80,8 +79,17 @@ export function EdgeDBProvider({
 }>) {
   const [cache, setCache] = useState<EdgeDBCache>(() => ({}));
 
-  const updateFragment = useCallback<EdgeDBContextType["updateFragment"]>(
-    (fragment, id, updater) => {
+  const updateFragment = useCallback(
+    <
+      F extends GeneratedFragmentType,
+      Normalized = NormalizeForCache<
+        FragmentPullReturnType<F["expr"], ReturnType<F["raw"]>>
+      >
+    >(
+      fragment: F,
+      id: string,
+      updater: (previous: Normalized) => Normalized
+    ) => {
       setCache((previousCache) => {
         const cache = clone(previousCache);
         const fragmentDefinition = fragment.definition;
@@ -103,7 +111,7 @@ export function EdgeDBProvider({
           fragmentMap,
           type,
           shape: fragmentDefinition.shape()({}),
-        });
+        }) as Normalized;
 
         const newData = previousData
           ? { ...previousData, ...updater(previousData) }
