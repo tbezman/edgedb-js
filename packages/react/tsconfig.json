@@ -2,7 +2,7 @@
   "compilerOptions": {
     "declarationDir": "./dist",
     "outDir": "./dist",
-    "lib": ["ESNext"],
+    "lib": ["DOM", "ESNext"],
     "target": "ESNext",
     "module": "CommonJS",
     "jsx": "react",
