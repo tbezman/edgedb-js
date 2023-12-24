@@ -10,9 +10,10 @@ import type { FragmentReturnType } from "../../generate/src/syntax/select";
 
 const clone = rfdc();
 
-export function useFragment<
-  F extends { type_: string; pull: (ref: any) => any; shape: () => any }
->(ref: Parameters<F["pull"]>[0], fragment: F): ReturnType<F["pull"]> {
+export function useFragment<F extends FragmentReturnType<string, any, any>>(
+  ref: Parameters<F["pull"]>[0],
+  fragment: F
+): ReturnType<F["pull"]> {
   const context = useContext(EdgeDBContext);
   const setCache = context?.setCache;
   const data = fragment.pull(ref);

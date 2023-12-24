@@ -176,15 +176,16 @@ describe("cache", () => {
       const context = useContext(EdgeDBContext);
 
       const handleClick = useCallback(() => {
-        context?.updateFragment("CacheTestUserFragment", userId, (previous) => {
-          return {
-            ...previous,
-            posts: [
-              ...previous.posts,
-              { id: mockNewPostUuid, title: "new post" },
-            ],
-          };
-        });
+        context?.updateFragment(CacheTestUserFragment, userId, (previous) => ({
+          ...previous,
+          posts: [
+            ...previous.posts,
+            {
+              id: mockNewPostUuid,
+              title: "new post",
+            },
+          ],
+        }));
       }, []);
 
       return (

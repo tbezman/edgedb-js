@@ -867,6 +867,44 @@ function $shape(_a: unknown, b: (...args: any) => any) {
 }
 export { $shape as shape };
 
+type ShapeGetter<
+  Expr extends ObjectTypeExpression,
+  Shape extends objectTypeToSelectShape<Expr["__element__"]> &
+    SelectModifiers<Expr["__element__"]>
+> = (scope: any) => Readonly<Shape>;
+
+export type GeneratedFragmentType = ShapeGetter<
+  ObjectTypeExpression,
+  objectTypeToSelectShape<ObjectTypeExpression["__element__"]> &
+    SelectModifiers<ObjectTypeExpression["__element__"]>
+> & {
+  fragmentName: string;
+  expr: ObjectTypeExpression;
+  raw: ShapeGetter<
+    ObjectTypeExpression,
+    objectTypeToSelectShape<ObjectTypeExpression["__element__"]> &
+      SelectModifiers<ObjectTypeExpression["__element__"]>
+  >;
+  definition: FragmentReturnType<string, ObjectTypeExpression, any>;
+};
+
+export type FragmentPullReturnType<
+  Expr extends ObjectTypeExpression,
+  Shape extends objectTypeToSelectShape<Expr["__element__"]> &
+    SelectModifiers<Expr["__element__"]>
+> = { id: string } & setToTsType<{
+  __element__: ObjectType<
+    `${Expr["__element__"]["__name__"]}`, // _shape
+    Expr["__element__"]["__pointers__"],
+    Omit<normaliseShape<Readonly<Shape>>, SelectModifierNames>
+  >;
+  __cardinality__: typeof Cardinality.One;
+}>;
+
+export type NormalizeForCache<FPRT extends FragmentPullReturnType<any, any>> = {
+  [key in keyof FPRT]: key extends `__${string}` ? never : FPRT[key];
+};
+
 export type FragmentReturnType<
   FragmentName extends string,
   Expr extends ObjectTypeExpression,
@@ -876,17 +914,8 @@ export type FragmentReturnType<
   type_: string;
   shape: () => (scope: unknown) => Readonly<Shape>;
   pull: (obj: {
-    $fragmentSpreads: {
-      [key in FragmentName]: true;
-    };
-  }) => { id: string } & setToTsType<{
-    __element__: ObjectType<
-      `${Expr["__element__"]["__name__"]}`, // _shape
-      Expr["__element__"]["__pointers__"],
-      Omit<normaliseShape<Readonly<Shape>>, SelectModifierNames>
-    >;
-    __cardinality__: typeof Cardinality.One;
-  }>;
+    $fragmentSpreads: Record<FragmentName, true>;
+  }) => FragmentPullReturnType<Expr, Shape>;
 };
 
 export function fragment<

@@ -12,6 +12,10 @@ import type { Dispatch, PropsWithChildren, SetStateAction } from "react";
 import { createContext, useCallback, useMemo, useState } from "react";
 
 import rfdc from "rfdc";
+import type {
+  FragmentPullReturnType,
+  GeneratedFragmentType,
+} from "../../generate/src/syntax/select";
 
 const clone = rfdc();
 
@@ -24,16 +28,44 @@ type EdgeDBContextType = {
   cache: EdgeDBCache;
   setCache: Dispatch<SetStateAction<EdgeDBCache>>;
 
-  updateFragment: (
-    name: string,
+  updateFragment: <F extends GeneratedFragmentType>(
+    fragment: F,
     id: string,
-    updater: (previous: any) => any
+    updater: (
+      previous: NormalizeForCache<
+        FragmentPullReturnType<F["expr"], ReturnType<F["raw"]>>
+      >
+    ) => NormalizeForCache<
+      FragmentPullReturnType<F["expr"], ReturnType<F["raw"]>>
+    >
   ) => void;
 };
 
 export const EdgeDBContext = createContext<EdgeDBContextType | undefined>(
   undefined
 );
+
+type FragmentValues<FPRT extends FragmentPullReturnType<any, any>> = {
+  [key in keyof FPRT]: key extends `__${string}` ? FPRT[key] : never;
+}[keyof FPRT] extends never
+  ? Record<string, never>
+  : {
+      [key in keyof FPRT]: key extends `__${string}`
+        ? FPRT[key] extends { id: string }
+          ? NormalizeForCache<FPRT[key]>
+          : never
+        : never;
+    }[keyof FPRT];
+
+export type NormalizeForCache<FPRT extends FragmentPullReturnType<any, any>> = {
+  [key in keyof FPRT]: FPRT[key] extends Array<infer T>
+    ? T extends { id: string }
+      ? Array<NormalizeForCache<T>>
+      : never
+    : key extends `__${string}`
+    ? never
+    : FPRT[key];
+} & FragmentValues<FPRT>;
 
 export function EdgeDBProvider({
   spec,
@@ -46,19 +78,19 @@ export function EdgeDBProvider({
   const [cache, setCache] = useState<EdgeDBCache>(() => ({}));
 
   const updateFragment = useCallback<EdgeDBContextType["updateFragment"]>(
-    (name, id, updater) => {
+    (fragment, id, updater) => {
       setCache((previousCache) => {
         const cache = clone(previousCache);
-        const fragmentDefinion = fragmentMap.get(name);
+        const fragmentDefinition = fragment.definition;
 
-        if (!fragmentDefinion) {
+        if (!fragmentDefinition) {
           throw new Error(`Fragment ${name} not found`);
         }
 
-        const type = findType(spec, fragmentDefinion.type_);
+        const type = findType(spec, fragmentDefinition.type_);
 
         if (!type) {
-          throw new Error(`Type ${fragmentDefinion.type_} not found`);
+          throw new Error(`Type ${fragmentDefinition.type_} not found`);
         }
 
         const previousData = rawReadFromCache({
@@ -67,7 +99,7 @@ export function EdgeDBProvider({
           cache,
           fragmentMap,
           type,
-          shape: fragmentDefinion.shape()({}),
+          shape: fragmentDefinition.shape()({}),
         });
 
         const newData = previousData

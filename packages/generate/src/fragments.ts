@@ -102,7 +102,7 @@ export function generateFragmentManifest(params: {
 
   manifest.addImportDeclaration({
     moduleSpecifier: "./syntax",
-    namedImports: ["$linkPropify"],
+    namedImports: ["$linkPropify", "FragmentReturnType"],
   });
 
   for (const fragment of fragments) {
@@ -121,11 +121,17 @@ export function generateFragmentManifest(params: {
     });
 
     manifest.addVariableStatement({
-      isExported: true,
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        { name: `${fragment.name}Definition`, initializer: fragment.text },
+      ],
+    });
+
+    manifest.addVariableStatement({
       declarationKind: VariableDeclarationKind.Const,
       declarations: [
         {
-          name: fragment.name,
+          name: fragment.name + "Masked",
           initializer: (writer) => {
             writer.write("(shape: ");
 
@@ -150,13 +156,75 @@ export function generateFragmentManifest(params: {
 
               writer.inlineBlock(() => {
                 writer.write("__" + fragment.name);
-                writer.write(": e.select(shape, ");
-                writer.write(fragment.text);
-                writer.write(".shape())");
+                writer.write(
+                  `: e.select(shape, ${fragment.name}Definition.shape())`
+                );
               });
 
               writer.write("as any as AsType");
             });
+          },
+        },
+      ],
+    });
+
+    manifest.addVariableStatement({
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: fragment.name + "Raw",
+          initializer: (writer) => {
+            writer.write("(shape: ");
+
+            writer.write(`ExprShape<typeof e.${fragment.type}>`);
+
+            writer.write(") =>");
+
+            writer.block(() => {
+              writer.blankLine();
+
+              writer.write("return ");
+
+              writer.inlineBlock(() => {
+                writer.write("__" + fragment.name);
+                writer.write(": e.select(shape, ");
+                // TEMPORARY HACK TO ENSURE WE GET RAW FRAGMENTS ALL THE WAY DOWN
+                writer.write(
+                  fragment.text.replaceAll(/\.\.\.(\w+)/g, "...$1.raw")
+                );
+                writer.write(".shape())");
+              });
+            });
+          },
+        },
+      ],
+    });
+
+    manifest.addVariableStatement({
+      isExported: true,
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: fragment.name,
+          type: (writer) => {
+            writer.write(
+              `typeof ${fragment.name}Masked & 
+                { fragmentName: string, 
+                  raw: typeof ${fragment.name}Raw, 
+                  expr: typeof e.${fragment.type} ,
+                  definition: typeof ${fragment.name}Definition,
+                }`
+            );
+          },
+          initializer: (writer) => {
+            writer.write(`Object.assign(${fragment.name}Masked, {`);
+
+            writer.write(`fragmentName: '${fragment.name}',`);
+            writer.write(`raw: ${fragment.name}Raw,`);
+            writer.write(`expr: e.${fragment.type},`);
+            writer.write(`definition: ${fragment.name}Definition,`);
+
+            writer.write(`})`);
           },
         },
       ],
@@ -169,7 +237,12 @@ export function generateFragmentManifest(params: {
       {
         name: "fragmentMap",
         initializer: (writer) => {
-          writer.write("new Map<string, ReturnType<typeof e.fragment>>()");
+          writer.write(
+            `new Map<string, FragmentReturnType<string,
+              ObjectTypeExpression,
+              objectTypeToSelectShape<any> & SelectModifiers<any>
+            >>()`
+          );
         },
       },
     ],
@@ -179,7 +252,7 @@ export function generateFragmentManifest(params: {
     fragments.map((fragment) => {
       return (writer) => {
         writer.writeLine(
-          `fragmentMap.set('${fragment.name}', ${fragment.text})`
+          `fragmentMap.set('${fragment.name}', ${fragment.name}Definition)`
         );
       };
     })
