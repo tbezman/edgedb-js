@@ -45,10 +45,12 @@ export const EdgeDBContext = createContext<EdgeDBContextType | undefined>(
   undefined
 );
 
-type FragmentValues<FPRT extends FragmentPullReturnType<any, any>> = {
+type OmitNever<T> = { [K in keyof T as T[K] extends never ? never : K]: T[K] };
+
+export type FragmentValues<FPRT extends FragmentPullReturnType<any, any>> = {
   [key in keyof FPRT]: key extends `__${string}` ? FPRT[key] : never;
 }[keyof FPRT] extends never
-  ? Record<string, never>
+  ? Record<never, string>
   : {
       [key in keyof FPRT]: key extends `__${string}`
         ? FPRT[key] extends { id: string }
@@ -57,10 +59,16 @@ type FragmentValues<FPRT extends FragmentPullReturnType<any, any>> = {
         : never;
     }[keyof FPRT];
 
-type FirstPart<FPRT extends FragmentPullReturnType<any, any>> = FPRT;
+export type NonFragmentValues<FPRT extends FragmentPullReturnType<any, any>> = {
+  [key in keyof FPRT]: key extends `__${string}`
+    ? never
+    : FPRT[key] extends Array<infer U extends { id: string }>
+    ? Array<OmitNever<NormalizeForCache<U>>>
+    : FPRT[key];
+};
 
 export type NormalizeForCache<FPRT extends FragmentPullReturnType<any, any>> =
-  FirstPart<FPRT> & FragmentValues<FPRT>;
+  OmitNever<NonFragmentValues<FPRT>> & FragmentValues<FPRT>;
 
 export function EdgeDBProvider({
   spec,
