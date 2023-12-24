@@ -120,12 +120,6 @@ export function updateCache({ spec, cache, data, type }: UpdateCacheArgs) {
       return pointer.name === key;
     });
 
-    // This handles `id` since there is not pointer for that
-    // Every other field should have a pointer.
-    if (!maybePointer) {
-      cacheEntry[key] = value;
-    }
-
     if (isKeyFragment(key)) {
       if (!isNode(value)) {
         console.error(value);
@@ -136,7 +130,12 @@ export function updateCache({ spec, cache, data, type }: UpdateCacheArgs) {
 
       updateCache({ spec, cache, data: value, type });
 
-      return;
+      continue;
+    }
+
+    // This handles fields that are custom selects and dont' necessarily map to a field on the type
+    if (!maybePointer) {
+      cacheEntry[key] = value;
     }
 
     if (maybePointer) {
