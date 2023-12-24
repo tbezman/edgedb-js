@@ -17,9 +17,11 @@
   "types": "./dist/react/src/index.d.ts",
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "generate": "../generate/dist/cli.js edgeql-js"
+    "generate": "../generate/dist/cli.js edgeql-js",
+    "benchmark": "rm -rf node_modules/typescriprt && cp -R ../../node_modules/typescript ./node_modules/ && tsx ./src/benches.ts"
   },
   "devDependencies": {
+    "@arktype/attest": "^0.5.0",
     "@inrupt/jest-jsdom-polyfills": "^3.0.2",
     "@testing-library/react": "^14.1.2",
     "@types/node": "^20.8.4",
@@ -29,6 +31,7 @@
     "jest": "^29.7.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "tsx": "^4.7.0",
     "typescript": "^5.2.2"
   },
   "peerDependencies": {
