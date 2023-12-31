@@ -7,17 +7,24 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate": "tsx ../generate/src/cli.ts edgeql-js"
+    "generate": "node ../generate/dist/cli.js edgeql-js",
+    "seed": "tsx ./seed.ts"
   },
   "dependencies": {
+    "clsx": "^2.1.0",
+    "date-fns": "^3.0.6",
     "next": "14.0.4",
+    "next-usequerystate": "^1.13.2",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@faker-js/faker": "^8.3.1",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/uuid": "^9.0.7",
     "autoprefixer": "^10.0.1",
     "postcss": "^8",
     "tailwindcss": "^3.3.0",
