@@ -5,7 +5,7 @@ import { Cardinality } from "edgedb/dist/reflection";
 // Strictly importing the type here
 import type { FragmentReturnType } from "../../generate/src/syntax/select";
 
-export type FragmentMap = Map<string, FragmentReturnType<any, any>>;
+export type FragmentMap = Map<string, FragmentReturnType<string, any, any>>;
 export type SpecType = Map<string, Type>;
 
 export function findType(spec: SpecType, type_: string) {
@@ -270,7 +270,7 @@ export function readFromCache({
             cache,
             fragmentMap,
             type: targetType,
-            shape: shapeValue,
+            shape: shapeValue as any,
             id: cacheValue.__ref__,
           });
         }

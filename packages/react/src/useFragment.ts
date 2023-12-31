@@ -25,24 +25,25 @@ export function useFragment<F extends FragmentReturnType<string, any, any>>(
     throw new Error(`Could not find type ${fragment.type_}`);
   }
   useEffect(() => {
+    console.log("Inserting into cache");
     setCache?.((previous) => {
       const cache = clone(previous);
       updateCache({
         spec: context?.spec,
         cache,
-        data,
+        data: data as any,
         type,
       });
       return cache;
     });
-  }, []);
+  }, [ref]);
   const resultFromCache = readFromCache({
     type,
     spec: context.spec,
     fragmentMap: context.fragmentMap,
     cache: context?.cache ?? {},
     shape: fragment.shape()({}),
-    id: data.id,
+    id: data.id as string,
   }) as ReturnType<F["pull"]>;
   return resultFromCache ?? data;
 }

@@ -120,7 +120,7 @@ export function EdgeDBProvider({
         updateCache({
           spec,
           cache,
-          data: newData,
+          data: newData as any,
           type,
         });
 
