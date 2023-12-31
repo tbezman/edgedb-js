@@ -13,10 +13,8 @@
   "files": [
     "/dist"
   ],
-  "main": "./dist/react/src/index.js",
-  "types": "./dist/react/src/index.d.ts",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "rm -rf dist/ && tsc --project tsconfig.json",
     "generate": "../generate/dist/cli.js edgeql-js",
     "benchmark": "rm -rf node_modules/typescriprt && cp -R ../../node_modules/typescript ./node_modules/ && tsx ./src/benches.ts"
   },
