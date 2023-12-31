@@ -6,17 +6,30 @@ import rfdc from "rfdc";
 import { findType, readFromCache, updateCache } from "./cache";
 
 // Strictly importing the type here
-import type { FragmentReturnType } from "../../generate/src/syntax/select";
+import type {
+  FragmentReturnType,
+  ShapeExtends,
+} from "../../generate/src/syntax/select";
+import type { ObjectTypeExpression } from "../dbschema/edgeql-js/typesystem";
 
 const clone = rfdc();
 
-export function useFragment<F extends FragmentReturnType<string, any, any>>(
-  ref: Parameters<F["pull"]>[0],
-  fragment: F
-): ReturnType<F["pull"]> {
+export function useFragment<
+  FN extends string,
+  F extends FragmentReturnType<
+    FN,
+    ObjectTypeExpression,
+    ShapeExtends<ObjectTypeExpression>
+  >
+>(ref: Parameters<F["pull"]>[0], fragment: F): ReturnType<F["pull"]> {
+  const data = fragment.pull(ref);
+
+  if (typeof window === "undefined") {
+    return data as ReturnType<F["pull"]>;
+  }
+
   const context = useContext(EdgeDBContext);
   const setCache = context?.setCache;
-  const data = fragment.pull(ref);
   if (!context) {
     throw new Error(`useFragment must be used within an EdgeDBProvider`);
   }

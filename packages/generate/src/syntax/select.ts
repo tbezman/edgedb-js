@@ -854,10 +854,9 @@ type ScopeParam<Expr extends ObjectTypeExpression> = $scopify<
     [k in keyof Expr]: k extends "__cardinality__" ? Cardinality.One : Expr[k];
   }>;
 
-type ShapeExtends<Expr extends ObjectTypeExpression> = objectTypeToSelectShape<
-  Expr["__element__"]
-> &
-  SelectModifiers<Expr["__element__"]>;
+export type ShapeExtends<Expr extends ObjectTypeExpression> =
+  objectTypeToSelectShape<Expr["__element__"]> &
+    SelectModifiers<Expr["__element__"]>;
 
 function $shape<
   Expr extends ObjectTypeExpression,

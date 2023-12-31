@@ -6,14 +6,16 @@ import {
   CommentCardCommentFragmentRef,
   ReplyCommentCardCommentFragment,
 } from "@/dbschema/edgeql-js/manifest";
+import { useFragment } from "../../react/src/useFragment";
 
 type CommentCardProps = {
   commentRef: CommentCardCommentFragmentRef;
 };
 
 export function CommentCard({ commentRef }: CommentCardProps) {
-  const comment = e
-    .fragment("CommentCardCommentFragment", e.Comment, (comment) => ({
+  const comment = useFragment(
+    commentRef,
+    e.fragment("CommentCardCommentFragment", e.Comment, (comment) => ({
       id: true,
       text: true,
       created_at: true,
@@ -34,7 +36,7 @@ export function CommentCard({ commentRef }: CommentCardProps) {
         ...ReplyCommentCardCommentFragment(reply),
       }),
     }))
-    .pull(commentRef);
+  );
 
   return (
     <div>

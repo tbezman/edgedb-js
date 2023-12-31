@@ -39,6 +39,7 @@ export function ReplyButton({ commentId }: ReplyButtonProps) {
           replies: [
             ...previous.replies,
             {
+              __optimistic__: true,
               id: fakeUuid,
               author: {
                 id: fakeAuthorUuid,

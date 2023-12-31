@@ -4,8 +4,9 @@ import { useEffect, useRef } from "react";
 import e from "@/dbschema/edgeql-js";
 import { useQueryState } from "next-usequerystate";
 import clsx from "clsx";
-import { isOptimistic } from "@edgedb/react/dist/react/src/cache";
-import { ReplyCommentCardCommentFragmentRef } from "@/dbschema/edgeql-js/manifest";
+import { isOptimistic } from "../../react/src/cache";
+import type { ReplyCommentCardCommentFragmentRef } from "@/dbschema/edgeql-js/manifest";
+import { useFragment } from "../../react/src/useFragment";
 
 type ReplyCommentCardProps = {
   highlightedCommentId?: string;
@@ -13,8 +14,9 @@ type ReplyCommentCardProps = {
 };
 
 export function ReplyCommentCard({ commentRef }: ReplyCommentCardProps) {
-  const comment = e
-    .fragment("ReplyCommentCardCommentFragment", e.Comment, (comment) => ({
+  const comment = useFragment(
+    commentRef,
+    e.fragment("ReplyCommentCardCommentFragment", e.Comment, (comment) => ({
       id: true,
       author: {
         id: true,
@@ -22,7 +24,7 @@ export function ReplyCommentCard({ commentRef }: ReplyCommentCardProps) {
       },
       text: true,
     }))
-    .pull(commentRef);
+  );
 
   const elementRef = useRef<HTMLDivElement | null>(null);
 

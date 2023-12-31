@@ -6,19 +6,21 @@ import { useTransition } from "react";
 import e from "@/dbschema/edgeql-js";
 import { Spinner } from "./Spinner";
 import { PostCardPostFragmentRef } from "@/dbschema/edgeql-js/manifest";
+import { useFragment } from "../../react/src/useFragment";
 
 type PostCardProps = {
   postRef: PostCardPostFragmentRef;
 };
 
 export function PostCard({ postRef }: PostCardProps) {
-  const post = e
-    .fragment("PostCardPostFragment", e.Post, () => ({
+  const post = useFragment(
+    postRef,
+    e.fragment("PostCardPostFragment", e.Post, () => ({
       id: true,
       title: true,
       content: true,
     }))
-    .pull(postRef);
+  );
 
   const router = useRouter();
   const [isTransitioning, startTransition] = useTransition();
