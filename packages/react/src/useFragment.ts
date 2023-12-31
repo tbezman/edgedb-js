@@ -1,9 +1,10 @@
 "use client";
 
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { EdgeDBContext } from "./EdgeDBProvider";
 import rfdc from "rfdc";
 import { findType, readFromCache, updateCache } from "./cache";
+import equal from "fast-deep-equal";
 
 // Strictly importing the type here
 import type {
@@ -37,8 +38,8 @@ export function useFragment<
   if (!type) {
     throw new Error(`Could not find type ${fragment.type_}`);
   }
+
   useEffect(() => {
-    console.log("Inserting into cache");
     setCache?.((previous) => {
       const cache = clone(previous);
       updateCache({
@@ -47,9 +48,15 @@ export function useFragment<
         data: data as any,
         type,
       });
+
+      if (equal(previous, cache)) {
+        return previous;
+      }
+
       return cache;
     });
   }, [ref]);
+
   const resultFromCache = readFromCache({
     type,
     spec: context.spec,
@@ -58,5 +65,6 @@ export function useFragment<
     shape: fragment.shape()({}),
     id: data.id as string,
   }) as ReturnType<F["pull"]>;
+
   return resultFromCache ?? data;
 }
