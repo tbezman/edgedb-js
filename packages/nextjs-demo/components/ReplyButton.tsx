@@ -6,10 +6,7 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useQueryState } from "next-usequerystate";
-import {
-  EdgeDBContext,
-  EdgeDBContextType,
-} from "@edgedb/react/dist/react/src/EdgeDBProvider";
+import { EdgeDBContext } from "../../react/src/EdgeDBProvider";
 import { submitReply } from "@/actions/submitReply";
 import { CommentCardCommentFragment } from "@/dbschema/edgeql-js/manifest";
 
@@ -25,7 +22,7 @@ export function ReplyButton({ commentId }: ReplyButtonProps) {
   const [, setHighlightedCommentId] = useQueryState("highlightedComment");
 
   const router = useRouter();
-  const context = useContext<EdgeDBContextType | null>(EdgeDBContext);
+  const context = useContext(EdgeDBContext);
 
   function insertOptimistic() {
     setReplyTo(null);
