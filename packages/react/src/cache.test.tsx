@@ -232,7 +232,7 @@ describe("cache", () => {
 
     const insertFakePostButton = await findByTestId("insert-fake-post");
 
-    await fireEvent.click(insertFakePostButton);
+    fireEvent.click(insertFakePostButton);
 
     cacheElement = await findByTestId("cache");
     cache = JSON.parse(cacheElement.textContent ?? "");
