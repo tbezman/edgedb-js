@@ -16,8 +16,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  console.log("Rendering", EdgeDBProvider);
-
   return (
     <html lang="en">
       <body className={`${inter.className} bg-blue-50 text-blue-950`}>
