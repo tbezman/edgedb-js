@@ -1,12 +1,13 @@
 "use client";
 import e from "@/dbschema/edgeql-js";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type {
   SignInSignOutButtonAuthedUserFragmentRef,
   UserListModalUserFragmentRef,
 } from "@/dbschema/edgeql-js/manifest";
 import { signIn, signOut } from "@/actions/auth";
 import { parseAsBoolean, useQueryState } from "next-usequerystate";
+import { useFragment } from "@edgedb/react/src/useFragment";
 
 const SignInSignOutButtonAuthedUserFragment = e.fragment(
   "SignInSignOutButtonAuthedUserFragment",
@@ -26,9 +27,10 @@ export function SignInSignOutButton({
 }) {
   const [open, setOpen] = useQueryState("sign-in", parseAsBoolean);
 
-  const user = authedUserRef
-    ? SignInSignOutButtonAuthedUserFragment.pull(authedUserRef)
-    : null;
+  const user = useFragment(
+    authedUserRef,
+    SignInSignOutButtonAuthedUserFragment
+  );
 
   return (
     <>
@@ -78,7 +80,7 @@ function UserListModal({
   userRefs: Array<UserListModalUserFragmentRef>;
 }) {
   const [, setOpen] = useQueryState("sign-in", parseAsBoolean);
-  const users = userRefs.map(UserListModalUserFragment.pull);
+  const users = useFragment(userRefs, UserListModalUserFragment);
 
   useEffect(() => {
     // hide the scrollbar
