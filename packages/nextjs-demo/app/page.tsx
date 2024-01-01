@@ -4,7 +4,7 @@ import { PropsWithChildren, Suspense } from "react";
 import e from "@/dbschema/edgeql-js";
 import {
   PostCardPostFragment,
-  UserListModalAuthedUserFragment,
+  SignInSignOutButtonAuthedUserFragment,
   UserListModalUserFragment,
 } from "@/dbschema/edgeql-js/manifest";
 import { SignInSignOutButton } from "@/components/SignInSignOutButton";
@@ -29,7 +29,7 @@ export default async function Home() {
     userUuid
       ? e
           .select(e.User, (user) => ({
-            ...UserListModalAuthedUserFragment(user),
+            ...SignInSignOutButtonAuthedUserFragment(user),
             filter_single: e.op(user.id, "=", e.uuid(userUuid)),
           }))
           .run(client)

@@ -2,14 +2,14 @@
 import e from "@/dbschema/edgeql-js";
 import { useEffect, useState } from "react";
 import type {
-  UserListModalAuthedUserFragmentRef,
+  SignInSignOutButtonAuthedUserFragmentRef,
   UserListModalUserFragmentRef,
 } from "@/dbschema/edgeql-js/manifest";
 import { signIn, signOut } from "@/actions/auth";
 import { parseAsBoolean, useQueryState } from "next-usequerystate";
 
-const UserListModalAuthedUserFragment = e.fragment(
-  "UserListModalAuthedUserFragment",
+const SignInSignOutButtonAuthedUserFragment = e.fragment(
+  "SignInSignOutButtonAuthedUserFragment",
   e.User,
   (user) => ({
     id: true,
@@ -21,13 +21,13 @@ export function SignInSignOutButton({
   authedUserRef,
   userRefs,
 }: {
-  authedUserRef: UserListModalAuthedUserFragmentRef | null;
+  authedUserRef: SignInSignOutButtonAuthedUserFragmentRef | null;
   userRefs: Array<UserListModalUserFragmentRef>;
 }) {
   const [open, setOpen] = useQueryState("sign-in", parseAsBoolean);
 
   const user = authedUserRef
-    ? UserListModalAuthedUserFragment.pull(authedUserRef)
+    ? SignInSignOutButtonAuthedUserFragment.pull(authedUserRef)
     : null;
 
   return (

@@ -7,8 +7,8 @@ import e from "@/dbschema/edgeql-js";
 import { CommentSection } from "@/components/CommentSection";
 import {
   CommentCardAuthedUserFragment,
-  UserListModalAuthedUserFragment,
-  UserListModalAuthedUserFragmentRef,
+  SignInSignOutButtonAuthedUserFragment,
+  SignInSignOutButtonAuthedUserFragmentRef,
   UserListModalUserFragmentRef,
 } from "@/dbschema/edgeql-js/manifest";
 import {
@@ -44,7 +44,7 @@ export default async function PostPage({ params }: PageProps) {
     userUuid
       ? e
           .select(e.User, (user) => ({
-            ...UserListModalAuthedUserFragment(user),
+            ...SignInSignOutButtonAuthedUserFragment(user),
             ...CommentCardAuthedUserFragment(user),
 
             filter_single: e.op(user.id, "=", e.uuid(userUuid)),
@@ -91,7 +91,7 @@ function Header({
   authedUserRef,
   userRefs,
 }: {
-  authedUserRef: UserListModalAuthedUserFragmentRef | null;
+  authedUserRef: SignInSignOutButtonAuthedUserFragmentRef | null;
   userRefs: Array<UserListModalUserFragmentRef>;
 }) {
   return (
