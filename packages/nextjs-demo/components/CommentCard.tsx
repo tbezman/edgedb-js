@@ -3,40 +3,56 @@ import { formatDistanceToNow } from "date-fns";
 import { ReplyButton } from "./ReplyButton";
 import { ReplyCommentCard } from "./ReplyCommentCard";
 import {
+  CommentCardAuthedUserFragmentRef,
   CommentCardCommentFragmentRef,
-  ReplyCommentCardCommentFragment,
+  ReplyButtonAuthedUserFragment,
 } from "@/dbschema/edgeql-js/manifest";
+import { ReplyCommentCardCommentFragment } from "@/dbschema/edgeql-js/manifest";
 import { useFragment } from "../../react/src/useFragment";
 
 type CommentCardProps = {
+  authedUserRef: CommentCardAuthedUserFragmentRef | null;
   commentRef: CommentCardCommentFragmentRef;
 };
 
-export function CommentCard({ commentRef }: CommentCardProps) {
-  const comment = useFragment(
-    commentRef,
-    e.fragment("CommentCardCommentFragment", e.Comment, (comment) => ({
-      id: true,
-      text: true,
-      created_at: true,
+const CommentCardAuthedUserFragment = e.fragment(
+  "CommentCardAuthedUserFragment",
+  e.User,
+  (user) => ({
+    id: true,
+    ...ReplyButtonAuthedUserFragment(user),
+  })
+);
 
-      author: {
-        id: true,
-        name: true,
+const CommentCardCommentFragment = e.fragment(
+  "CommentCardCommentFragment",
+  e.Comment,
+  (comment) => ({
+    id: true,
+    text: true,
+    created_at: true,
+
+    author: {
+      id: true,
+      name: true,
+    },
+
+    replies: (reply) => ({
+      id: true,
+
+      order_by: {
+        expression: reply.created_at,
+        direction: "ASC",
       },
 
-      replies: (reply) => ({
-        id: true,
+      ...ReplyCommentCardCommentFragment(reply),
+    }),
+  })
+);
 
-        order_by: {
-          expression: reply.created_at,
-          direction: "ASC",
-        },
-
-        ...ReplyCommentCardCommentFragment(reply),
-      }),
-    }))
-  );
+export function CommentCard({ commentRef, authedUserRef }: CommentCardProps) {
+  const comment = useFragment(commentRef, CommentCardCommentFragment);
+  const authedUser = useFragment(authedUserRef, CommentCardAuthedUserFragment);
 
   return (
     <div>
@@ -51,7 +67,9 @@ export function CommentCard({ commentRef }: CommentCardProps) {
           </span>
         </div>
 
-        <ReplyButton commentId={comment.id} />
+        {authedUser ? (
+          <ReplyButton authedUserRef={authedUser} commentId={comment.id} />
+        ) : null}
       </div>
 
       <p>{comment.text}</p>

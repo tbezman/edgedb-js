@@ -1,4 +1,5 @@
 "use client";
+import e from "@/dbschema/edgeql-js";
 import { faker } from "@faker-js/faker";
 
 import Link from "next/link";
@@ -8,15 +9,31 @@ import { useRouter } from "next/navigation";
 import { useQueryState } from "next-usequerystate";
 import { EdgeDBContext } from "../../react/src/EdgeDBProvider";
 import { submitReply } from "@/actions/submitReply";
-import { CommentCardCommentFragment } from "@/dbschema/edgeql-js/manifest";
+import {
+  CommentCardCommentFragment,
+  ReplyButtonAuthedUserFragmentRef,
+} from "@/dbschema/edgeql-js/manifest";
 
 import { v4 } from "uuid";
+import { useFragment } from "../../react/src/useFragment";
+
+const ReplyButtonAuthedUserFragment = e.fragment(
+  "ReplyButtonAuthedUserFragment",
+  e.User,
+  () => ({
+    id: true,
+    name: true,
+  })
+);
 
 type ReplyButtonProps = {
   commentId: string;
+  authedUserRef: ReplyButtonAuthedUserFragmentRef;
 };
 
-export function ReplyButton({ commentId }: ReplyButtonProps) {
+export function ReplyButton({ commentId, authedUserRef }: ReplyButtonProps) {
+  const authedUser = useFragment(authedUserRef, ReplyButtonAuthedUserFragment);
+
   const [nextCommentId, setNextCommentId] = useState(faker.string.uuid());
   const [replyTo, setReplyTo] = useQueryState("reply_to", { shallow: true });
   const [, setHighlightedCommentId] = useQueryState("highlightedComment");
@@ -25,10 +42,15 @@ export function ReplyButton({ commentId }: ReplyButtonProps) {
   const context = useContext(EdgeDBContext);
 
   function insertOptimistic() {
+    if (!formRef.current) {
+      return;
+    }
+
     setReplyTo(null);
 
+    const formData = new FormData(formRef.current);
     const fakeUuid = v4();
-    const fakeAuthorUuid = v4();
+    const commentText = formData.get("text") as string;
 
     context?.updateFragment(
       CommentCardCommentFragment,
@@ -41,12 +63,9 @@ export function ReplyButton({ commentId }: ReplyButtonProps) {
             {
               __optimistic__: true,
               id: fakeUuid,
-              author: {
-                id: fakeAuthorUuid,
-                name: "Fake Name",
-              },
+              author: authedUser,
 
-              text: "Some text here",
+              text: commentText,
             },
           ],
         };

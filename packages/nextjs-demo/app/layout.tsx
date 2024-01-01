@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { EdgeDBProvider } from "@/app/EdgeDBProvider";
+import { SignInSignOutButton } from "@/components/SignInSignOutButton";
 
 const inter = Inter({ subsets: ["latin"] });
 

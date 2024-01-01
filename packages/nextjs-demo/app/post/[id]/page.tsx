@@ -5,23 +5,53 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import e from "@/dbschema/edgeql-js";
 import { CommentSection } from "@/components/CommentSection";
-import { CommentSectionPostFragment } from "@/dbschema/edgeql-js/manifest";
+import {
+  CommentCardAuthedUserFragment,
+  UserListModalAuthedUserFragment,
+  UserListModalAuthedUserFragmentRef,
+  UserListModalUserFragmentRef,
+} from "@/dbschema/edgeql-js/manifest";
+import {
+  CommentSectionPostFragment,
+  UserListModalUserFragment,
+} from "@/dbschema/edgeql-js/manifest";
+import { SignInSignOutButton } from "@/components/SignInSignOutButton";
+import { cookies } from "next/headers";
 
 type PageProps = {
   params: { id: string };
 };
 
 export default async function PostPage({ params }: PageProps) {
-  const post = await e
-    .select(e.Post, (post) => ({
-      title: true,
-      content: true,
+  const userUuid = cookies().get("userUuid")?.value;
 
-      ...CommentSectionPostFragment(post),
+  const [post, users, authedUser] = await Promise.all([
+    e
+      .select(e.Post, (post) => ({
+        title: true,
+        content: true,
 
-      filter_single: e.op(post.id, "=", e.uuid(params.id)),
-    }))
-    .run(client);
+        ...CommentSectionPostFragment(post),
+
+        filter_single: e.op(post.id, "=", e.uuid(params.id)),
+      }))
+      .run(client),
+    e
+      .select(e.User, (user) => ({
+        ...UserListModalUserFragment(user),
+      }))
+      .run(client),
+    userUuid
+      ? e
+          .select(e.User, (user) => ({
+            ...UserListModalAuthedUserFragment(user),
+            ...CommentCardAuthedUserFragment(user),
+
+            filter_single: e.op(user.id, "=", e.uuid(userUuid)),
+          }))
+          .run(client)
+      : null,
+  ]);
 
   if (!post) {
     return notFound();
@@ -29,7 +59,7 @@ export default async function PostPage({ params }: PageProps) {
 
   return (
     <>
-      <Header />
+      <Header authedUserRef={authedUser} userRefs={users} />
 
       <article className="flex flex-col max-w-2xl py-4 mx-auto">
         <h1 className="text-2xl font-bold mb-2">{post.title}</h1>
@@ -48,7 +78,7 @@ export default async function PostPage({ params }: PageProps) {
             <h2 className="text-xl font-bold">Comments</h2>
 
             <ul className="space-y-8">
-              <CommentSection postRef={post} />
+              <CommentSection authedUserRef={authedUser} postRef={post} />
             </ul>
           </Suspense>
         </div>
@@ -57,14 +87,24 @@ export default async function PostPage({ params }: PageProps) {
   );
 }
 
-function Header() {
+function Header({
+  authedUserRef,
+  userRefs,
+}: {
+  authedUserRef: UserListModalAuthedUserFragmentRef | null;
+  userRefs: Array<UserListModalUserFragmentRef>;
+}) {
   return (
-    <Link
-      href="/"
-      className="flex items-center space-x-1 underline sticky mt-4 ml-4"
-    >
-      &lt;
-      <span>Back to home</span>
-    </Link>
+    <div className="flex items-center justify-between sticky top-4">
+      <Link
+        href="/"
+        className="flex items-center space-x-1 underline sticky mt-4 ml-4"
+      >
+        &lt;
+        <span>Back to home</span>
+      </Link>
+
+      <SignInSignOutButton authedUserRef={authedUserRef} userRefs={userRefs} />
+    </div>
   );
 }
