@@ -22,11 +22,33 @@ export function useFragment<
     ObjectTypeExpression,
     ShapeExtends<ObjectTypeExpression>
   >
->(ref: Parameters<F["pull"]>[0], fragment: F): ReturnType<F["pull"]> {
-  const data = fragment.pull(ref);
+>(ref: Parameters<F["pull"]>[0], fragment: F): ReturnType<F["pull"]>;
+export function useFragment<
+  FN extends string,
+  F extends FragmentReturnType<
+    FN,
+    ObjectTypeExpression,
+    ShapeExtends<ObjectTypeExpression>
+  >
+>(
+  ref: Parameters<F["pull"]>[0] | null,
+  fragment: F
+): ReturnType<F["pull"]> | null;
+export function useFragment<
+  FN extends string,
+  F extends FragmentReturnType<
+    FN,
+    ObjectTypeExpression,
+    ShapeExtends<ObjectTypeExpression>
+  >
+>(
+  ref: Parameters<F["pull"]>[0] | null,
+  fragment: F
+): ReturnType<F["pull"]> | null {
+  const data = ref ? (fragment.pull(ref) as ReturnType<F["pull"]>) : null;
 
   if (typeof window === "undefined") {
-    return data as ReturnType<F["pull"]>;
+    return data;
   }
 
   const context = useContext(EdgeDBContext);
@@ -40,11 +62,16 @@ export function useFragment<
   }
 
   useEffect(() => {
+    if (!data) {
+      return;
+    }
+
     setCache?.((previous) => {
       const cache = clone(previous);
       updateCache({
         spec: context?.spec,
         cache,
+
         data: data as any,
         type,
       });
@@ -56,6 +83,10 @@ export function useFragment<
       return cache;
     });
   }, [ref]);
+
+  if (!data) {
+    return null;
+  }
 
   const resultFromCache = readFromCache({
     type,
