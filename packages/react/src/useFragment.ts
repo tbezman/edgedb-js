@@ -22,6 +22,17 @@ export function useFragment<
     ObjectTypeExpression,
     ShapeExtends<ObjectTypeExpression>
   >
+>(
+  ref: Array<Parameters<F["pull"]>[0]>,
+  fragment: F
+): Array<ReturnType<F["pull"]>>;
+export function useFragment<
+  FN extends string,
+  F extends FragmentReturnType<
+    FN,
+    ObjectTypeExpression,
+    ShapeExtends<ObjectTypeExpression>
+  >
 >(ref: Parameters<F["pull"]>[0], fragment: F): ReturnType<F["pull"]>;
 export function useFragment<
   FN extends string,
@@ -42,10 +53,15 @@ export function useFragment<
     ShapeExtends<ObjectTypeExpression>
   >
 >(
-  ref: Parameters<F["pull"]>[0] | null,
+  ref: Array<Parameters<F["pull"]>[0]> | Parameters<F["pull"]>[0] | null,
   fragment: F
-): ReturnType<F["pull"]> | null {
-  const data = ref ? (fragment.pull(ref) as ReturnType<F["pull"]>) : null;
+): Array<ReturnType<F["pull"]>> | ReturnType<F["pull"]> | null {
+  let data: Array<ReturnType<F["pull"]>> | ReturnType<F["pull"]> | null = null;
+  if (Array.isArray(ref)) {
+    data = ref.map(fragment.pull) as Array<ReturnType<F["pull"]>>;
+  } else if (ref) {
+    data = fragment.pull(ref) as ReturnType<F["pull"]>;
+  }
 
   if (typeof window === "undefined") {
     return data;
@@ -68,6 +84,7 @@ export function useFragment<
 
     setCache?.((previous) => {
       const cache = clone(previous);
+
       updateCache({
         spec: context?.spec,
         cache,
@@ -88,14 +105,32 @@ export function useFragment<
     return null;
   }
 
-  const resultFromCache = readFromCache({
-    type,
-    spec: context.spec,
-    fragmentMap: context.fragmentMap,
-    cache: context?.cache ?? {},
-    shape: fragment.shape()({}),
-    id: data.id as string,
-  }) as ReturnType<F["pull"]>;
+  let resultFromCache:
+    | Array<ReturnType<F["pull"]>>
+    | ReturnType<F["pull"]>
+    | null = null;
+
+  if (Array.isArray(data)) {
+    resultFromCache = data.map((item) => {
+      return readFromCache({
+        type,
+        spec: context.spec,
+        fragmentMap: context.fragmentMap,
+        cache: context?.cache ?? {},
+        shape: fragment.shape()({}),
+        id: item.id as string,
+      }) as ReturnType<F["pull"]>;
+    });
+  } else {
+    resultFromCache = readFromCache({
+      type,
+      spec: context.spec,
+      fragmentMap: context.fragmentMap,
+      cache: context?.cache ?? {},
+      shape: fragment.shape()({}),
+      id: data.id as string,
+    }) as ReturnType<F["pull"]>;
+  }
 
   return resultFromCache ?? data;
 }

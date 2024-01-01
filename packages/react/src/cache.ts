@@ -85,14 +85,24 @@ function handleLinkedField({
   }
 }
 
+type CacheDataType = { id: string } & Record<string, unknown>;
+
 type UpdateCacheArgs = {
   spec: SpecType;
   cache: EdgeDBCache;
-  data: { id: string } & Record<string, unknown>;
+  data: CacheDataType | Array<CacheDataType>;
   type: Type;
 };
 
 export function updateCache({ spec, cache, data, type }: UpdateCacheArgs) {
+  if(Array.isArray(data)) {
+    data.forEach((item) => {
+      updateCache({ spec, cache, data: item, type });
+    });
+
+    return cache;
+  }
+
   if (!("id" in data) || typeof data.id !== "string") {
     console.error(data);
     throw new Error("Tried to insert the above without an id");
