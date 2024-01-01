@@ -111,11 +111,7 @@ export function generateFragmentManifest(params: {
       name: `${fragment.name}Ref`,
       type: (writer) => {
         writer.block(() => {
-          writer.write("$fragmentSpreads:");
-
-          writer.block(() => {
-            writer.write(`${fragment.name}: true`);
-          });
+          writer.write(`${fragment.name}: true`);
         });
       },
     });
@@ -141,9 +137,7 @@ export function generateFragmentManifest(params: {
 
             writer.block(() => {
               writer.write(`const FragmentMaskType = e.shape(e.${fragment.type}, () => ({
-                    '$fragmentSpreads': e.select(shape, ()=> ({
-                      '${fragment.name}': e.select(e.bool(true)),
-                    }))
+                    '${fragment.name}': e.select(e.bool(true)),
                   }))`);
 
               writer.writeLine(

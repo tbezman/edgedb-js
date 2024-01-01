@@ -913,9 +913,9 @@ export type FragmentReturnType<
 > = {
   type_: string;
   shape: () => (scope: unknown) => Readonly<Shape>;
-  pull: (obj: {
-    $fragmentSpreads: Record<FragmentName, true>;
-  }) => FragmentPullReturnType<Expr, Shape>;
+  pull: (
+    obj: Record<FragmentName, true>
+  ) => FragmentPullReturnType<Expr, Shape>;
 };
 
 export function fragment<
