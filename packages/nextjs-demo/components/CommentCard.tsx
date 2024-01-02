@@ -3,26 +3,28 @@ import { formatDistanceToNow } from "date-fns";
 import { ReplyButton } from "./ReplyButton";
 import { ReplyCommentCard } from "./ReplyCommentCard";
 import {
-  CommentCardAuthedUserFragmentRef,
-  CommentCardCommentFragmentRef,
-  ReplyButtonAuthedUserFragment,
+    CommentCardCommentFragmentRef,
+    CommentCardQueryFragment,
+    CommentCardQueryFragmentDefinition,
+    CommentCardQueryFragmentRef, ReplyButtonAuthedUserFragment,
+    ReplyCommentCardCommentFragment,
 } from "@/dbschema/edgeql-js/manifest";
-import { ReplyCommentCardCommentFragment } from "@/dbschema/edgeql-js/manifest";
-import { useFragment } from "../../react/src/useFragment";
+import { useFragment, useQueryFragment } from "../../react/src/useFragment";
 
 type CommentCardProps = {
-  authedUserRef: CommentCardAuthedUserFragmentRef | null;
+  queryRef: CommentCardQueryFragmentRef;
   commentRef: CommentCardCommentFragmentRef;
 };
 
-const CommentCardAuthedUserFragment = e.fragment(
-  "CommentCardAuthedUserFragment",
-  e.User,
-  (user) => ({
-    id: true,
+e.queryFragment("CommentCardQueryFragment", {
+  authedUser: e.select(e.User, (user) => ({
     ...ReplyButtonAuthedUserFragment(user),
-  })
-);
+
+    filter_single: {
+      id: e.cast(e.uuid, e.param("userUuid", e.uuid)),
+    },
+  })),
+});
 
 const CommentCardCommentFragment = e.fragment(
   "CommentCardCommentFragment",
@@ -50,9 +52,12 @@ const CommentCardCommentFragment = e.fragment(
   })
 );
 
-export function CommentCard({ commentRef, authedUserRef }: CommentCardProps) {
+export function CommentCard({ commentRef, queryRef }: CommentCardProps) {
   const comment = useFragment(commentRef, CommentCardCommentFragment);
-  const authedUser = useFragment(authedUserRef, CommentCardAuthedUserFragment);
+  const { authedUser } = useQueryFragment(
+    queryRef,
+    CommentCardQueryFragmentDefinition
+  );
 
   return (
     <div>

@@ -9,22 +9,19 @@ import { useRouter } from "next/navigation";
 import { useQueryState } from "next-usequerystate";
 import { EdgeDBContext } from "../../react/src/EdgeDBProvider";
 import { submitReply } from "@/actions/submitReply";
+import type { ReplyButtonAuthedUserFragmentRef } from "@/dbschema/edgeql-js/manifest";
 import {
   CommentCardCommentFragment,
-  ReplyButtonAuthedUserFragmentRef,
+  ReplyButtonAuthedUserFragmentDefinition,
 } from "@/dbschema/edgeql-js/manifest";
 
 import { v4 } from "uuid";
 import { useFragment } from "../../react/src/useFragment";
 
-const ReplyButtonAuthedUserFragment = e.fragment(
-  "ReplyButtonAuthedUserFragment",
-  e.User,
-  () => ({
-    id: true,
-    name: true,
-  })
-);
+e.fragment("ReplyButtonAuthedUserFragment", e.User, (user) => ({
+  id: true,
+  name: true,
+}));
 
 type ReplyButtonProps = {
   commentId: string;
@@ -32,7 +29,10 @@ type ReplyButtonProps = {
 };
 
 export function ReplyButton({ commentId, authedUserRef }: ReplyButtonProps) {
-  const authedUser = useFragment(authedUserRef, ReplyButtonAuthedUserFragment);
+  const authedUser = useFragment(
+    authedUserRef,
+    ReplyButtonAuthedUserFragmentDefinition
+  );
 
   const [nextCommentId, setNextCommentId] = useState(faker.string.uuid());
   const [replyTo, setReplyTo] = useQueryState("reply_to", { shallow: true });

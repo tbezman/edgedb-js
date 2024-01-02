@@ -19,16 +19,16 @@ const SignInSignOutButtonQueryFragmentDefinition = e.queryFragment(
     users: e.select(e.User, (user) => ({
       ...UserListModalUserFragment(user),
     })),
-    authedUser: e.assert_single(
-      e.select(e.User, (user) => {
-        return {
-          id: true,
-          name: true,
+    authedUser: e.select(e.User, (user) => {
+      return {
+        id: true,
+        name: true,
 
-          limit: 1,
-        };
-      })
-    ),
+        filter_single: {
+          id: e.cast(e.uuid, e.param("userUuid", e.uuid)),
+        },
+      };
+    }),
   }
 );
 

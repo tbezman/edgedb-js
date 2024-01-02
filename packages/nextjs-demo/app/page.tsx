@@ -4,37 +4,36 @@ import { PropsWithChildren, Suspense } from "react";
 import e from "@/dbschema/edgeql-js";
 import {
   PostCardPostFragment,
-  SignInSignOutButtonAuthedUserFragment,
   SignInSignOutButtonQueryFragment,
-  UserListModalUserFragment,
 } from "@/dbschema/edgeql-js/manifest";
 import { SignInSignOutButton } from "@/components/SignInSignOutButton";
 import { cookies } from "next/headers";
 
 export default async function Home() {
-  const userUuid = cookies().get("userUuid")?.value;
+  const userUuid = cookies().get("userUuid")?.value || undefined;
 
   const query = await e
-    .select({
-      posts: e.select(e.Post, (post) => ({
-        id: true,
+    .params({ userUuid: e.optional(e.uuid) }, (params) => {
+      return e.select({
+        posts: e.select(e.Post, (post) => ({
+          id: true,
 
-        ...PostCardPostFragment(post),
-      })),
+          ...PostCardPostFragment(post),
+        })),
 
-      ...SignInSignOutButtonQueryFragment(),
+        ...SignInSignOutButtonQueryFragment(),
+      });
     })
-    .run(client);
+    .run(client, {
+      userUuid,
+    });
 
   return (
     <div className="py-4 px-4">
       <div className="flex items-center justify-between sticky top-4">
         <Title>Posts</Title>
 
-        <SignInSignOutButton
-          authedUserRef={query.authedUser}
-          queryRef={query}
-        />
+        <SignInSignOutButton queryRef={query} />
       </div>
 
       <ul className="list-inside space-y-4">

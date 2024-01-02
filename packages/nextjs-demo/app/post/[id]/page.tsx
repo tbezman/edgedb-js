@@ -5,15 +5,11 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import e from "@/dbschema/edgeql-js";
 import { CommentSection } from "@/components/CommentSection";
-import {
-  CommentCardAuthedUserFragment,
-  SignInSignOutButtonAuthedUserFragment,
-  SignInSignOutButtonAuthedUserFragmentRef,
-  UserListModalUserFragmentRef,
-} from "@/dbschema/edgeql-js/manifest";
+import type { SignInSignOutButtonQueryFragmentRef } from "@/dbschema/edgeql-js/manifest";
 import {
   CommentSectionPostFragment,
-  UserListModalUserFragment,
+  CommentSectionQueryFragment,
+  SignInSignOutButtonQueryFragment,
 } from "@/dbschema/edgeql-js/manifest";
 import { SignInSignOutButton } from "@/components/SignInSignOutButton";
 import { cookies } from "next/headers";
@@ -22,49 +18,39 @@ type PageProps = {
   params: { id: string };
 };
 
-export default async function PostPage({ params }: PageProps) {
-  const userUuid = cookies().get("userUuid")?.value;
+export default async function PostPage({ params: pageParams }: PageProps) {
+  const userUuid = cookies().get("userUuid")?.value || null;
 
-  const [post, users, authedUser] = await Promise.all([
-    e
-      .select(e.Post, (post) => ({
-        title: true,
-        content: true,
+  const query = await e
+    .params({ userUuid: e.optional(e.uuid) }, (params) => {
+      return e.select({
+        post: e.select(e.Post, (post) => ({
+          title: true,
+          content: true,
 
-        ...CommentSectionPostFragment(post),
+          ...CommentSectionPostFragment(post),
 
-        filter_single: e.op(post.id, "=", e.uuid(params.id)),
-      }))
-      .run(client),
-    e
-      .select(e.User, (user) => ({
-        ...UserListModalUserFragment(user),
-      }))
-      .run(client),
-    userUuid
-      ? e
-          .select(e.User, (user) => ({
-            ...SignInSignOutButtonAuthedUserFragment(user),
-            ...CommentCardAuthedUserFragment(user),
+          filter_single: e.op(post.id, "=", e.uuid(pageParams.id)),
+        })),
 
-            filter_single: e.op(user.id, "=", e.uuid(userUuid)),
-          }))
-          .run(client)
-      : null,
-  ]);
+        ...CommentSectionQueryFragment(),
+        ...SignInSignOutButtonQueryFragment(),
+      });
+    })
+    .run(client, { userUuid });
 
-  if (!post) {
+  if (!query.post) {
     return notFound();
   }
 
   return (
     <>
-      <Header authedUserRef={authedUser} userRefs={users} />
+      <Header queryRef={query} />
 
       <article className="flex flex-col max-w-2xl py-4 mx-auto">
-        <h1 className="text-2xl font-bold mb-2">{post.title}</h1>
+        <h1 className="text-2xl font-bold mb-2">{query.post.title}</h1>
 
-        <p>{post.content}</p>
+        <p>{query.post.content}</p>
 
         <div className="mt-4">
           <Suspense
@@ -78,7 +64,7 @@ export default async function PostPage({ params }: PageProps) {
             <h2 className="text-xl font-bold">Comments</h2>
 
             <ul className="space-y-8">
-              <CommentSection authedUserRef={authedUser} postRef={post} />
+              <CommentSection queryRef={query} postRef={query.post} />
             </ul>
           </Suspense>
         </div>
@@ -88,11 +74,9 @@ export default async function PostPage({ params }: PageProps) {
 }
 
 function Header({
-  authedUserRef,
-  userRefs,
+  queryRef,
 }: {
-  authedUserRef: SignInSignOutButtonAuthedUserFragmentRef | null;
-  userRefs: Array<UserListModalUserFragmentRef>;
+  queryRef: SignInSignOutButtonQueryFragmentRef;
 }) {
   return (
     <div className="flex items-center justify-between sticky top-4">
@@ -104,7 +88,7 @@ function Header({
         <span>Back to home</span>
       </Link>
 
-      <SignInSignOutButton authedUserRef={authedUserRef} userRefs={userRefs} />
+      <SignInSignOutButton queryRef={queryRef} />
     </div>
   );
 }
