@@ -48,7 +48,20 @@ export function generateFragmentManifest(params: {
       `,
   });
 
-  const fragments: Array<{ name: string; type: string; text: string }> = [];
+  type Fragment =
+    | {
+        kind: "normal";
+        name: string;
+        type: string;
+        text: string;
+      }
+    | {
+        kind: "query";
+        name: string;
+        text: string;
+      };
+
+  const fragments: Array<Fragment> = [];
   for (const file of files) {
     file
       .getDescendantsOfKind(SyntaxKind.CallExpression)
@@ -61,9 +74,11 @@ export function generateFragmentManifest(params: {
         const identifiers = pae?.getChildrenOfKind(SyntaxKind.Identifier) ?? [];
         const [first, second] = identifiers;
 
+        const firstText = first?.getText();
+        const secondText = second?.getText();
         if (
-          first?.getText() === "e" &&
-          second?.getText() === "fragment" &&
+          firstText === "e" &&
+          (secondText === "fragment" || secondText === "queryFragment") &&
           callExpression
         ) {
           const nameArgument = callExpression.getArguments()[0];
@@ -74,7 +89,11 @@ export function generateFragmentManifest(params: {
           const typeArgument = callExpression.getArguments()[1];
           const typeName = typeArgument.getText().split("e.")[1];
 
+          const kind: "query" | "normal" =
+            secondText === "fragment" ? "normal" : "query";
+
           fragments.push({
+            kind,
             name: fragmentName,
             text: callExpression.getText(),
             type: typeName,
@@ -129,20 +148,30 @@ export function generateFragmentManifest(params: {
         {
           name: fragment.name + "Masked",
           initializer: (writer) => {
-            writer.write("(shape: ");
+            writer.write("(");
 
-            writer.write(`ExprShape<typeof e.${fragment.type}>`);
+            if (fragment.kind === "normal") {
+              writer.write(`shape: ExprShape<typeof e.${fragment.type}>`);
+            }
 
             writer.write(") =>");
 
             writer.block(() => {
-              writer.write(`const FragmentMaskType = e.shape(e.${fragment.type}, () => ({
+              if (fragment.kind === "query") {
+                writer.write(`const FragmentMaskType = {
+                    '${fragment.name}': e.select(e.bool(true)),
+                  }`);
+
+                writer.writeLine("type AsType = typeof FragmentMaskType");
+              } else if (fragment.kind === "normal") {
+                writer.write(`const FragmentMaskType = e.shape(e.${fragment.type}, () => ({
                     '${fragment.name}': e.select(e.bool(true)),
                   }))`);
 
-              writer.writeLine(
-                "type AsType = ReturnType<typeof FragmentMaskType>"
-              );
+                writer.writeLine(
+                  "type AsType = ReturnType<typeof FragmentMaskType>"
+                );
+              }
 
               writer.blankLine();
 
@@ -150,12 +179,19 @@ export function generateFragmentManifest(params: {
 
               writer.inlineBlock(() => {
                 writer.write("__" + fragment.name);
-                writer.write(
-                  `: e.select(shape, ${fragment.name}Definition.shape())`
-                );
+
+                if (fragment.kind === "query") {
+                  writer.write(
+                    `: e.select(${fragment.name}Definition.shape())`
+                  );
+                } else if (fragment.kind === "normal") {
+                  writer.write(
+                    `: e.select(shape, ${fragment.name}Definition.shape())`
+                  );
+                }
               });
 
-              writer.write("as any as AsType");
+              writer.write("as unknown as AsType");
             });
           },
         },
@@ -168,20 +204,24 @@ export function generateFragmentManifest(params: {
         {
           name: fragment.name + "Raw",
           initializer: (writer) => {
-            writer.write("(shape: ");
+            writer.write("(");
 
-            writer.write(`ExprShape<typeof e.${fragment.type}>`);
+            if (fragment.kind === "normal") {
+              writer.write(`shape: ExprShape<typeof e.${fragment.type}>`);
+            }
 
             writer.write(") =>");
 
             writer.block(() => {
-              writer.blankLine();
-
               writer.write("return ");
 
               writer.inlineBlock(() => {
                 writer.write("__" + fragment.name);
-                writer.write(": e.select(shape, ");
+                if (fragment.kind === "query") {
+                  writer.write(": e.select(");
+                } else if (fragment.kind === "normal") {
+                  writer.write(": e.select(shape, ");
+                }
                 // TEMPORARY HACK TO ENSURE WE GET RAW FRAGMENTS ALL THE WAY DOWN
                 writer.write(
                   fragment.text.replaceAll(/\.\.\.(\w+)/g, "...$1.raw")
@@ -201,24 +241,32 @@ export function generateFragmentManifest(params: {
         {
           name: fragment.name,
           type: (writer) => {
-            writer.write(
-              `typeof ${fragment.name}Masked & 
-                { fragmentName: string, 
-                  raw: typeof ${fragment.name}Raw, 
-                  expr: typeof e.${fragment.type} ,
-                  definition: typeof ${fragment.name}Definition,
-                }`
-            );
+            writer.write(`typeof ${fragment.name}Masked &`);
+
+            writer.block(() => {
+              writer.writeLine("fragmentName: string");
+              writer.writeLine(`raw: typeof ${fragment.name}Raw`);
+              writer.writeLine(`definition: typeof ${fragment.name}Definition`);
+
+              if (fragment.kind === "normal") {
+                writer.writeLine(`expr: typeof e.${fragment.type}`);
+              }
+            });
           },
           initializer: (writer) => {
-            writer.write(`Object.assign(${fragment.name}Masked, {`);
+            writer.write(`Object.assign(${fragment.name}Masked, `);
 
-            writer.write(`fragmentName: '${fragment.name}',`);
-            writer.write(`raw: ${fragment.name}Raw,`);
-            writer.write(`expr: e.${fragment.type},`);
-            writer.write(`definition: ${fragment.name}Definition,`);
+            writer.block(() => {
+              writer.write(`fragmentName: '${fragment.name}',`);
+              writer.write(`raw: ${fragment.name}Raw,`);
+              writer.write(`definition: ${fragment.name}Definition,`);
 
-            writer.write(`})`);
+              if (fragment.kind === "normal") {
+                writer.write(`expr: e.${fragment.type},`);
+              }
+            });
+
+            writer.write(`)`);
           },
         },
       ],
@@ -231,12 +279,15 @@ export function generateFragmentManifest(params: {
       {
         name: "fragmentMap",
         initializer: (writer) => {
-          writer.write(
-            `new Map<string, FragmentReturnType<string,
-              ObjectTypeExpression,
-              objectTypeToSelectShape<any> & SelectModifiers<any>
-            >>()`
-          );
+          writer.write(`new Map<string,`);
+
+          const fragmentType = fragments
+            .map((fragment) => `typeof ${fragment.name}Definition`)
+            .join(" | ");
+
+          writer.write(fragmentType);
+
+          writer.write(`>()`);
         },
       },
     ],

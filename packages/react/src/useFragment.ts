@@ -11,7 +11,11 @@ import type {
   FragmentReturnType,
   ShapeExtends,
 } from "../../generate/src/syntax/select";
-import type { ObjectTypeExpression } from "../dbschema/edgeql-js/typesystem";
+import type {
+  ObjectTypeExpression,
+  TypeSet,
+} from "../../generate/src/syntax/typesystem";
+import type { QueryFragmentReturnType } from "nextjs-demo/dbschema/edgeql-js/select";
 
 const clone = rfdc();
 
@@ -133,4 +137,11 @@ export function useFragment<
   }
 
   return resultFromCache ?? data;
+}
+
+export function useQueryFragment<
+  FN extends string,
+  F extends QueryFragmentReturnType<FN, any>
+>(ref: Parameters<F["pull"]>[0], fragment: F): ReturnType<F["pull"]> {
+  return fragment.pull(ref) as ReturnType<F["pull"]>;
 }

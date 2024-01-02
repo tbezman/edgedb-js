@@ -5,6 +5,7 @@ import e from "@/dbschema/edgeql-js";
 import {
   PostCardPostFragment,
   SignInSignOutButtonAuthedUserFragment,
+  SignInSignOutButtonQueryFragment,
   UserListModalUserFragment,
 } from "@/dbschema/edgeql-js/manifest";
 import { SignInSignOutButton } from "@/components/SignInSignOutButton";
@@ -13,39 +14,31 @@ import { cookies } from "next/headers";
 export default async function Home() {
   const userUuid = cookies().get("userUuid")?.value;
 
-  const [posts, users, authedUser] = await Promise.all([
-    e
-      .select(e.Post, (post) => ({
+  const query = await e
+    .select({
+      posts: e.select(e.Post, (post) => ({
         id: true,
 
         ...PostCardPostFragment(post),
-      }))
-      .run(client),
-    e
-      .select(e.User, (user) => ({
-        ...UserListModalUserFragment(user),
-      }))
-      .run(client),
-    userUuid
-      ? e
-          .select(e.User, (user) => ({
-            ...SignInSignOutButtonAuthedUserFragment(user),
-            filter_single: e.op(user.id, "=", e.uuid(userUuid)),
-          }))
-          .run(client)
-      : null,
-  ]);
+      })),
+
+      ...SignInSignOutButtonQueryFragment(),
+    })
+    .run(client);
 
   return (
     <div className="py-4 px-4">
       <div className="flex items-center justify-between sticky top-4">
         <Title>Posts</Title>
 
-        <SignInSignOutButton authedUserRef={authedUser} userRefs={users} />
+        <SignInSignOutButton
+          authedUserRef={query.authedUser}
+          queryRef={query}
+        />
       </div>
 
       <ul className="list-inside space-y-4">
-        {posts.map((post) => {
+        {query.posts.map((post) => {
           return (
             <li key={post.id}>
               <Suspense fallback={<FallbackCard />}>

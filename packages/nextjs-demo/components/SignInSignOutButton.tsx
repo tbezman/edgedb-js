@@ -2,34 +2,46 @@
 import e from "@/dbschema/edgeql-js";
 import { useEffect } from "react";
 import type {
-  SignInSignOutButtonAuthedUserFragmentRef,
+  SignInSignOutButtonQueryFragmentRef,
   UserListModalUserFragmentRef,
+} from "@/dbschema/edgeql-js/manifest";
+import {
+  SignInSignOutButtonQueryFragment,
+  UserListModalUserFragment,
 } from "@/dbschema/edgeql-js/manifest";
 import { signIn, signOut } from "@/actions/auth";
 import { parseAsBoolean, useQueryState } from "next-usequerystate";
-import { useFragment } from "@edgedb/react/src/useFragment";
+import { useFragment, useQueryFragment } from "@edgedb/react/src/useFragment";
 
-const SignInSignOutButtonAuthedUserFragment = e.fragment(
-  "SignInSignOutButtonAuthedUserFragment",
-  e.User,
-  (user) => ({
-    id: true,
-    name: true,
-  })
+const SignInSignOutButtonQueryFragmentDefinition = e.queryFragment(
+  "SignInSignOutButtonQueryFragment",
+  {
+    users: e.select(e.User, (user) => ({
+      ...UserListModalUserFragment(user),
+    })),
+    authedUser: e.assert_single(
+      e.select(e.User, (user) => {
+        return {
+          id: true,
+          name: true,
+
+          limit: 1,
+        };
+      })
+    ),
+  }
 );
 
 export function SignInSignOutButton({
-  authedUserRef,
-  userRefs,
+  queryRef,
 }: {
-  authedUserRef: SignInSignOutButtonAuthedUserFragmentRef | null;
-  userRefs: Array<UserListModalUserFragmentRef>;
+  queryRef: SignInSignOutButtonQueryFragmentRef;
 }) {
   const [open, setOpen] = useQueryState("sign-in", parseAsBoolean);
 
-  const user = useFragment(
-    authedUserRef,
-    SignInSignOutButtonAuthedUserFragment
+  const { authedUser: user, users } = useQueryFragment(
+    queryRef,
+    SignInSignOutButtonQueryFragmentDefinition
   );
 
   return (
@@ -53,7 +65,7 @@ export function SignInSignOutButton({
 
       {open && (
         <UserListModal
-          userRefs={userRefs}
+          userRefs={users}
           onClose={() => {
             setOpen(false);
           }}
@@ -63,7 +75,7 @@ export function SignInSignOutButton({
   );
 }
 
-const UserListModalUserFragment = e.fragment(
+const UserListModalUserFragmentDefinition = e.fragment(
   "UserListModalUserFragment",
   e.User,
   (user) => ({
@@ -80,7 +92,7 @@ function UserListModal({
   userRefs: Array<UserListModalUserFragmentRef>;
 }) {
   const [, setOpen] = useQueryState("sign-in", parseAsBoolean);
-  const users = useFragment(userRefs, UserListModalUserFragment);
+  const users = useFragment(userRefs, UserListModalUserFragmentDefinition);
 
   useEffect(() => {
     // hide the scrollbar

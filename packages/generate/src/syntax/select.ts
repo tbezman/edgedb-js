@@ -918,6 +918,66 @@ export type FragmentReturnType<
   ) => FragmentPullReturnType<Expr, Shape>;
 };
 
+export type QueryFragmentPullReturnType<
+  Shape extends { [key: string]: TypeSet }
+> = {};
+
+export type QueryFragmentReturnType<
+  FragmentName extends string,
+  Shape extends { [key: string]: TypeSet }
+> = {
+  name: FragmentName;
+
+  shape: () => $expr_Select<{
+    __element__: ObjectType<
+      `std::FreeObject`,
+      {
+        [k in keyof Shape]: Shape[k]["__element__"] extends ObjectType
+          ? LinkDesc<
+              Shape[k]["__element__"],
+              Shape[k]["__cardinality__"],
+              {},
+              false,
+              true,
+              true,
+              false
+            >
+          : PropertyDesc<
+              Shape[k]["__element__"],
+              Shape[k]["__cardinality__"],
+              false,
+              true,
+              true,
+              false
+            >;
+      },
+      Shape
+    >; // _shape
+    __cardinality__: Cardinality.One;
+  }>;
+
+  pull: (obj: Record<FragmentName, true>) => QueryFragmentPullReturnType<Shape>;
+};
+
+export function queryFragment<
+  FragmentName extends string,
+  Shape extends { [key: string]: TypeSet }
+>(
+  name: FragmentName,
+  shape: Shape
+): QueryFragmentReturnType<FragmentName, Shape> {
+  return {
+    name: name,
+    shape: () => {
+      return select(shape);
+    },
+    pull(obj) {
+      // @ts-expect-error - this is fine because of fragment masking
+      return obj["__" + name];
+    },
+  };
+}
+
 export function fragment<
   FragmentName extends string,
   Expr extends ObjectTypeExpression,
