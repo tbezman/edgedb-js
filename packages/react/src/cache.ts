@@ -4,8 +4,12 @@ import { Cardinality } from "edgedb/dist/reflection";
 
 // Strictly importing the type here
 import type { FragmentReturnType } from "../../generate/src/syntax/select";
+import type { QueryFragmentReturnType } from "nextjs-demo/dbschema/edgeql-js/select";
 
-export type FragmentMap = Map<string, FragmentReturnType<string, any, any>>;
+export type FragmentMap = Map<
+  string,
+  QueryFragmentReturnType<string, any> | FragmentReturnType<string, any, any>
+>;
 export type SpecType = Map<string, Type>;
 
 export function findType(spec: SpecType, type_: string) {
@@ -95,7 +99,7 @@ type UpdateCacheArgs = {
 };
 
 export function updateCache({ spec, cache, data, type }: UpdateCacheArgs) {
-  if(Array.isArray(data)) {
+  if (Array.isArray(data)) {
     data.forEach((item) => {
       updateCache({ spec, cache, data: item, type });
     });
@@ -219,7 +223,9 @@ export function readFromCache({
     } else if (typeof shapeValue === "object") {
       if (key.startsWith("__")) {
         const fragmentName = key.slice(2);
-        const fragmentDefinition = fragmentMap.get(fragmentName);
+        const fragmentDefinition = fragmentMap.get(
+          fragmentName
+        ) as FragmentReturnType<string, any, any>;
 
         if (!fragmentDefinition) {
           throw new Error(`Could not find fragment ${fragmentName}`);

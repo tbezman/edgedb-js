@@ -116,27 +116,30 @@ export function useFragment<
 
   if (Array.isArray(data)) {
     resultFromCache = data.map((item) => {
-      return readFromCache({
+      return (
+        (readFromCache({
+          type,
+          spec: context.spec,
+          fragmentMap: context.fragmentMap,
+          cache: context?.cache ?? {},
+          shape: fragment.shape()({}),
+          id: item.id as string,
+        }) as ReturnType<F["pull"]>) ?? item
+      );
+    });
+  } else {
+    resultFromCache =
+      (readFromCache({
         type,
         spec: context.spec,
         fragmentMap: context.fragmentMap,
         cache: context?.cache ?? {},
         shape: fragment.shape()({}),
-        id: item.id as string,
-      }) as ReturnType<F["pull"]>;
-    });
-  } else {
-    resultFromCache = readFromCache({
-      type,
-      spec: context.spec,
-      fragmentMap: context.fragmentMap,
-      cache: context?.cache ?? {},
-      shape: fragment.shape()({}),
-      id: data.id as string,
-    }) as ReturnType<F["pull"]>;
+        id: data.id as string,
+      }) as ReturnType<F["pull"]>) ?? data;
   }
 
-  return resultFromCache ?? data;
+  return resultFromCache;
 }
 
 export function useQueryFragment<
