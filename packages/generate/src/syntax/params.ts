@@ -91,6 +91,20 @@ export type $expr_Param<
   __isComplex__: boolean;
 }>;
 
+export function param(
+  name: string,
+  type: ParamType,
+  optional?: boolean
+): $expr_Param {
+  return $expressionify({
+    __kind__: ExpressionKind.Param,
+    __element__: type,
+    __cardinality__: optional ? Cardinality.AtMostOne : Cardinality.One,
+    __name__: name,
+    __isComplex__: complexParamKinds.has(type.__kind__),
+  }) as any;
+}
+
 type paramsToParamExprs<
   Params extends {
     [key: string]: ParamType | $expr_OptionalParam;

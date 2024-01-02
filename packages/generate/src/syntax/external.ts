@@ -23,7 +23,7 @@ export {
 export {} from "./funcops";
 export { for } from "./for";
 export { alias, with } from "./with";
-export { optional, params } from "./params";
+export { optional, params, param } from "./params";
 export { detached } from "./detached";
 export {} from "./toEdgeQL";
 
