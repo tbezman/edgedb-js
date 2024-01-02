@@ -920,7 +920,35 @@ export type FragmentReturnType<
 
 export type QueryFragmentPullReturnType<
   Shape extends { [key: string]: TypeSet }
-> = {};
+> = setToTsType<
+  $expr_Select<{
+    __element__: ObjectType<
+      `std::FreeObject`,
+      {
+        [k in keyof Shape]: Shape[k]["__element__"] extends ObjectType
+          ? LinkDesc<
+              Shape[k]["__element__"],
+              Shape[k]["__cardinality__"],
+              {},
+              false,
+              true,
+              true,
+              false
+            >
+          : PropertyDesc<
+              Shape[k]["__element__"],
+              Shape[k]["__cardinality__"],
+              false,
+              true,
+              true,
+              false
+            >;
+      },
+      Shape
+    >; // _shape
+    __cardinality__: Cardinality.One;
+  }>
+>;
 
 export type QueryFragmentReturnType<
   FragmentName extends string,
