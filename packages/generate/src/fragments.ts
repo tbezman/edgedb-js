@@ -27,27 +27,6 @@ export function generateFragmentManifest(params: {
     }
   );
 
-  manifest.addImportDeclaration({
-    defaultImport: "e",
-    namedImports: [{ isTypeOnly: true, name: "Cardinality" }],
-    moduleSpecifier: "./index",
-  });
-
-  manifest.addTypeAlias({
-    name: "ExprShape",
-    typeParameters: [{ name: "Expr", constraint: "ObjectTypeExpression" }],
-    type: `
-    $scopify<
-      Expr["__element__"]
-    > &
-      $linkPropify<{
-        [k in keyof Expr]: k extends "__cardinality__"
-          ? typeof Cardinality.One
-          : Expr[k];
-      }>
-      `,
-  });
-
   type Fragment =
     | {
         kind: "normal";
@@ -102,30 +81,82 @@ export function generateFragmentManifest(params: {
       });
   }
 
-  manifest.addImportDeclaration({
-    namedImports: [
-      "$expr_Select",
-      "normaliseShape",
-      "SelectModifierNames",
-      "ComputeSelectCardinality",
-      "SelectModifiers",
-      "objectTypeToSelectShape",
-    ],
-    moduleSpecifier: "./select",
-  });
-
-  manifest.addImportDeclaration({
-    moduleSpecifier: "./typesystem",
-    namedImports: ["ObjectType", "$scopify", "ObjectTypeExpression"],
-  });
-
-  manifest.addImportDeclaration({
-    moduleSpecifier: "./syntax",
-    namedImports: ["$linkPropify", "FragmentReturnType"],
-  });
-
   for (const fragment of fragments) {
-    manifest.addTypeAlias({
+    const fragmentFile = project.createSourceFile(
+      path.join(
+        params.schemaDir,
+        "edgeql-js",
+        "fragments",
+        fragment.name + ".ts"
+      ),
+      undefined,
+      {
+        overwrite: true,
+      }
+    );
+
+    fragmentFile.addImportDeclaration({
+      namedImports: [
+        "$expr_Select",
+        "normaliseShape",
+        "SelectModifierNames",
+        "ComputeSelectCardinality",
+        "SelectModifiers",
+        "objectTypeToSelectShape",
+      ],
+      moduleSpecifier: "../select",
+    });
+
+    fragmentFile.addImportDeclaration({
+      moduleSpecifier: "../typesystem",
+      namedImports: ["ObjectType", "$scopify", "ObjectTypeExpression"],
+    });
+
+    fragmentFile.addImportDeclaration({
+      moduleSpecifier: "../syntax",
+      namedImports: ["$linkPropify", "FragmentReturnType"],
+    });
+
+    fragmentFile.addImportDeclaration({
+      defaultImport: "e",
+      namedImports: [{ isTypeOnly: true, name: "Cardinality" }],
+      moduleSpecifier: "../index",
+    });
+
+    const fragmentsThisFragmentReferences = [
+      ...fragment.text.matchAll(/\.\.\.(\w+)/g),
+    ].map((match) => match[1]);
+
+    fragmentFile.addImportDeclarations(
+      fragmentsThisFragmentReferences.map((fragmentName) => {
+        return {
+          moduleSpecifier: `./${fragmentName}`,
+          namedImports: [
+            fragmentName,
+            `${fragmentName}Masked`,
+            `${fragmentName}Raw`,
+            `${fragmentName}Definition`,
+          ],
+        };
+      })
+    );
+
+    fragmentFile.addTypeAlias({
+      name: "ExprShape",
+      typeParameters: [{ name: "Expr", constraint: "ObjectTypeExpression" }],
+      type: `
+    $scopify<
+      Expr["__element__"]
+    > &
+      $linkPropify<{
+        [k in keyof Expr]: k extends "__cardinality__"
+          ? typeof Cardinality.One
+          : Expr[k];
+      }>
+      `,
+    });
+
+    fragmentFile.addTypeAlias({
       isExported: true,
       name: `${fragment.name}Ref`,
       type: (writer) => {
@@ -135,106 +166,87 @@ export function generateFragmentManifest(params: {
       },
     });
 
-    manifest.addVariableStatement({
-      declarationKind: VariableDeclarationKind.Const,
-      declarations: [
-        { name: `${fragment.name}Definition`, initializer: fragment.text },
-      ],
-    });
-
-    manifest.addVariableStatement({
+    fragmentFile.addVariableStatement({
+      isExported: true,
       declarationKind: VariableDeclarationKind.Const,
       declarations: [
         {
-          name: fragment.name + "Masked",
-          initializer: (writer) => {
-            writer.write("(");
+          name: `${fragment.name}Definition`,
+          initializer: fragment.text,
+        },
+      ],
+    });
 
-            if (fragment.kind === "normal") {
-              writer.write(`shape: ExprShape<typeof e.${fragment.type}>`);
-            }
-
-            writer.write(") =>");
-
-            writer.block(() => {
-              if (fragment.kind === "query") {
-                writer.write(`const FragmentMaskType = {
+    fragmentFile.addFunction({
+      isExported: true,
+      name: fragment.name + "Masked",
+      parameters:
+        fragment.kind === "normal"
+          ? [{ name: "shape", type: `ExprShape<typeof e.${fragment.type}>` }]
+          : undefined,
+      statements: (writer) => {
+        if (fragment.kind === "query") {
+          writer.write(`const FragmentMaskType = {
                     '${fragment.name}': e.select(e.bool(true)),
                   }`);
 
-                writer.writeLine("type AsType = typeof FragmentMaskType");
-              } else if (fragment.kind === "normal") {
-                writer.write(`const FragmentMaskType = e.shape(e.${fragment.type}, () => ({
+          writer.writeLine("type AsType = typeof FragmentMaskType");
+        } else if (fragment.kind === "normal") {
+          writer.write(`const FragmentMaskType = e.shape(e.${fragment.type}, () => ({
                     '${fragment.name}': e.select(e.bool(true)),
                   }))`);
 
-                writer.writeLine(
-                  "type AsType = ReturnType<typeof FragmentMaskType>"
-                );
-              }
+          writer.writeLine("type AsType = ReturnType<typeof FragmentMaskType>");
+        }
 
-              writer.blankLine();
+        writer.blankLine();
 
-              writer.write("return ");
+        writer.write("return ");
 
-              writer.inlineBlock(() => {
-                writer.write("__" + fragment.name);
+        writer.inlineBlock(() => {
+          writer.write("__" + fragment.name + ": ");
 
-                if (fragment.kind === "query") {
-                  writer.write(
-                    `: e.select(${fragment.name}Definition.shape())`
-                  );
-                } else if (fragment.kind === "normal") {
-                  writer.write(
-                    `: e.select(shape, ${fragment.name}Definition.shape())`
-                  );
-                }
-              });
+          if (fragment.kind === "query") {
+            writer.write(`e.select(${fragment.name}Definition.shape())`);
+          } else if (fragment.kind === "normal") {
+            writer.write(`e.select(shape, ${fragment.name}Definition.shape())`);
+          }
+        });
 
-              writer.write("as unknown as AsType");
-            });
-          },
-        },
-      ],
+        writer.write("as unknown as AsType");
+      },
     });
 
-    manifest.addVariableStatement({
-      declarationKind: VariableDeclarationKind.Const,
-      declarations: [
-        {
-          name: fragment.name + "Raw",
-          initializer: (writer) => {
-            writer.write("(");
+    fragmentFile.addFunction({
+      isExported: true,
+      name: fragment.name + "Raw",
+      parameters:
+        fragment.kind === "normal"
+          ? [
+              {
+                name: "shape",
+                type: `ExprShape<typeof e.${fragment.type}>`,
+              },
+            ]
+          : undefined,
+      statements: (writer) => {
+        writer.write("return ");
 
-            if (fragment.kind === "normal") {
-              writer.write(`shape: ExprShape<typeof e.${fragment.type}>`);
-            }
-
-            writer.write(") =>");
-
-            writer.block(() => {
-              writer.write("return ");
-
-              writer.inlineBlock(() => {
-                writer.write("__" + fragment.name);
-                if (fragment.kind === "query") {
-                  writer.write(": e.select(");
-                } else if (fragment.kind === "normal") {
-                  writer.write(": e.select(shape, ");
-                }
-                // TEMPORARY HACK TO ENSURE WE GET RAW FRAGMENTS ALL THE WAY DOWN
-                writer.write(
-                  fragment.text.replaceAll(/\.\.\.(\w+)/g, "...$1.raw")
-                );
-                writer.write(".shape())");
-              });
-            });
-          },
-        },
-      ],
+        writer.inlineBlock(() => {
+          writer.write("__" + fragment.name);
+          if (fragment.kind === "query") {
+            writer.write(": e.select(");
+          } else if (fragment.kind === "normal") {
+            writer.write(": e.select(shape, ");
+          }
+          // TEMPORARY HACK TO ENSURE WE GET RAW FRAGMENTS ALL THE WAY DOWN
+          writer.write(fragment.text.replaceAll(/\.\.\.(\w+)/g, "...$1.raw"));
+          writer.write(".shape())");
+        });
+      },
     });
 
-    manifest.addVariableStatement({
+    fragmentFile.addVariableStatement({
       isExported: true,
       declarationKind: VariableDeclarationKind.Const,
       declarations: [
@@ -271,7 +283,28 @@ export function generateFragmentManifest(params: {
         },
       ],
     });
+
+    fragmentFile.formatText();
+    fragmentFile.saveSync();
   }
+
+  manifest.addImportDeclarations(
+    fragments.map((fragment) => {
+      return {
+        namedImports: [fragment.name + "Definition"],
+        moduleSpecifier: `./fragments/${fragment.name}`,
+      };
+    })
+  );
+
+  manifest.addExportDeclarations(
+    fragments.map((fragment) => {
+      // star export from fragment file
+      return {
+        moduleSpecifier: `./fragments/${fragment.name}`,
+      };
+    })
+  );
 
   manifest.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
