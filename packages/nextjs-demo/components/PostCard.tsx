@@ -23,7 +23,7 @@ export function PostCard({ postRef }: PostCardProps) {
   const [isTransitioning, startTransition] = useTransition();
 
   return (
-    <article className="flex flex-col max-w-2xl mx-auto">
+    <article className="flex flex-col max-w-xl mx-auto">
       <Link
         href={`/post/${post.id}`}
         onClick={(e) => {
@@ -48,7 +48,7 @@ export function PostCard({ postRef }: PostCardProps) {
 
 export function FallbackCard() {
   return (
-    <article className="flex flex-col max-w-2xl mx-auto space-y-1">
+    <article className="flex flex-col max-w-xl mx-auto space-y-1">
       <h3 className="h-5 font-medium bg-blue-100 animate-pulse rounded" />
 
       <p className="h-12 flex-grow bg-blue-100 animate-pulse rounded"></p>
