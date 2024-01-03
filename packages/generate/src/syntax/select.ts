@@ -847,7 +847,7 @@ export const $existingScopes = new Set<
   Expression<TypeSet<BaseType, Cardinality>>
 >();
 
-type ScopeParam<Expr extends ObjectTypeExpression> = $scopify<
+export type ScopeParam<Expr extends ObjectTypeExpression> = $scopify<
   Expr["__element__"]
 > &
   $linkPropify<{

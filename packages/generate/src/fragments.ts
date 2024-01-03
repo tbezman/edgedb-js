@@ -50,32 +50,72 @@ export function generateFragmentManifest(params: {
           SyntaxKind.PropertyAccessExpression
         );
 
-        const identifiers = pae?.getChildrenOfKind(SyntaxKind.Identifier) ?? [];
-        const [first, second] = identifiers;
+        const maybeUserFragmentIdent = callExpression.getChildAtIndexIfKind(
+          0,
+          SyntaxKind.Identifier
+        );
 
-        const firstText = first?.getText();
-        const secondText = second?.getText();
-        if (
-          firstText === "e" &&
-          (secondText === "fragment" || secondText === "queryFragment") &&
-          callExpression
+        if (pae) {
+          const identifiers =
+            pae?.getChildrenOfKind(SyntaxKind.Identifier) ?? [];
+          const [first, second] = identifiers;
+
+          const firstText = first?.getText();
+          const secondText = second?.getText();
+          if (
+            firstText === "e" &&
+            (secondText === "fragment" || secondText === "queryFragment") &&
+            callExpression
+          ) {
+            const nameArgument = callExpression.getArguments()[0];
+            const fragmentName = nameArgument
+              .getText()
+              .slice(1, nameArgument.getText().length - 1);
+
+            const typeArgument = callExpression.getArguments()[1];
+            const typeName = typeArgument.getText().split("e.")[1];
+
+            const kind: "query" | "normal" =
+              secondText === "fragment" ? "normal" : "query";
+
+            fragments.push({
+              kind,
+              name: fragmentName,
+              text: callExpression.getText(),
+              type: typeName,
+            });
+          }
+        } else if (
+          maybeUserFragmentIdent?.getText() === "useFragment" &&
+          callExpression.getArguments().length === 3
         ) {
-          const nameArgument = callExpression.getArguments()[0];
-          const fragmentName = nameArgument
-            .getText()
-            .slice(1, nameArgument.getText().length - 1);
+          const parentFunctionName = maybeUserFragmentIdent
+            .getFirstAncestorByKind(SyntaxKind.FunctionDeclaration)
+            ?.getName();
+          const expr = callExpression.getArguments()[1];
+          const shape = callExpression.getArguments()[2];
 
-          const typeArgument = callExpression.getArguments()[1];
-          const typeName = typeArgument.getText().split("e.")[1];
-
-          const kind: "query" | "normal" =
-            secondText === "fragment" ? "normal" : "query";
+          const type = expr.getText().split("e.")[1];
+          const name = `${parentFunctionName}${type}Fragment`;
 
           fragments.push({
-            kind,
-            name: fragmentName,
-            text: callExpression.getText(),
-            type: typeName,
+            kind: "normal",
+            name,
+            type,
+            text: `e.fragment("${name}", ${expr.getText()}, ${shape.getText()})`,
+          });
+        } else if (maybeUserFragmentIdent?.getText() === "useQueryFragment") {
+          const parentFunctionName = maybeUserFragmentIdent
+            .getFirstAncestorByKind(SyntaxKind.FunctionDeclaration)
+            ?.getName();
+          const shape = callExpression.getArguments()[1];
+
+          const name = `${parentFunctionName}QueryFragment`;
+
+          fragments.push({
+            kind: "query",
+            name,
+            text: `e.queryFragment("${name}", ${shape.getText()})`,
           });
         }
       });
