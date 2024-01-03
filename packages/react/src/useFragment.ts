@@ -1,6 +1,4 @@
-"use client";
-
-import { useContext, useEffect, useRef } from "react";
+import React from "react";
 import { EdgeDBContext } from "./EdgeDBProvider";
 import rfdc from "rfdc";
 import { findType, readFromCache, updateCache } from "./cache";
@@ -84,7 +82,7 @@ export function useFragment<
     return data;
   }
 
-  const context = useContext(EdgeDBContext);
+  const context = React.useContext(EdgeDBContext);
   const setCache = context?.setCache;
   if (!context) {
     throw new Error(`useFragment must be used within an EdgeDBProvider`);
@@ -94,7 +92,7 @@ export function useFragment<
     throw new Error(`Could not find type ${fragment.type_}`);
   }
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!data) {
       return;
     }
