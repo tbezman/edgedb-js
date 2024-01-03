@@ -65,7 +65,7 @@ export default async function PostPage({ params: pageParams }: PageProps) {
               </div>
             }
           >
-            <h2 className="text-xl font-bold">Comments</h2>
+            <h2 className="text-xl font-bold mb-4">Comments</h2>
 
             <ul className="space-y-8">
               <CommentSection queryRef={query} postRef={query.post} />

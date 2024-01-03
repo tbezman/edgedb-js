@@ -42,7 +42,7 @@ export function ReplyCommentCard({ commentRef }: ReplyCommentCardProps) {
     <div
       ref={elementRef}
       className={clsx("p-2 text-[15px] flex items-center gap-x-2 rounded", {
-        flash: isHighlighted && !isOptimistic(comment),
+        "flash rounded shadow": isHighlighted && !isOptimistic(comment),
         "opacity-50": isOptimistic(comment),
       })}
     >

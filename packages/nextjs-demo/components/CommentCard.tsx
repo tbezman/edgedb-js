@@ -1,3 +1,4 @@
+"use client";
 import e from "@/dbschema/edgeql-js";
 import { formatDistanceToNow } from "date-fns";
 import { ReplyButton } from "./ReplyButton";
@@ -11,6 +12,9 @@ import {
   ReplyCommentCardCommentFragment,
 } from "@/dbschema/edgeql-js/manifest";
 import { useFragment, useQueryFragment } from "../../react/src/useFragment";
+import { useQueryState } from "next-usequerystate";
+import clsx from "clsx";
+import { useEffect, useRef } from "react";
 
 type CommentCardProps = {
   queryRef: CommentCardQueryFragmentRef;
@@ -18,6 +22,8 @@ type CommentCardProps = {
 };
 
 export function CommentCard({ commentRef, queryRef }: CommentCardProps) {
+  const [highlightedCommentId] = useQueryState("highlightedComment");
+
   const comment = useFragment(commentRef, e.Comment, (comment) => ({
     id: true,
     text: true,
@@ -49,25 +55,43 @@ export function CommentCard({ commentRef, queryRef }: CommentCardProps) {
     })),
   });
 
+  const isHighlighted = highlightedCommentId === comment.id;
+
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (isHighlighted && wrapperRef.current) {
+      wrapperRef.current.scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
+    }
+  }, []);
+
   return (
     <div>
-      <div className="flex items-baseline justify-between">
-        <div className="flex items-baseline space-x-1">
-          <a href="#" className="text-blue-700 underline">
-            {comment.author.name}
-          </a>
-          <span>-</span>
-          <span className="text-sm">
-            {formatDistanceToNow(comment.created_at!)} ago
-          </span>
+      <div
+        className={clsx(`flex flex-col`, {
+          "flash shadow -m-2 p-2 rounded-lg": isHighlighted,
+        })}
+      >
+        <div className={clsx("flex items-baseline justify-between")}>
+          <div className="flex items-baseline space-x-1">
+            <a href="#" className="text-blue-700 underline">
+              {comment.author.name}
+            </a>
+            <span>-</span>
+            <span className="text-sm">
+              {formatDistanceToNow(comment.created_at!)} ago
+            </span>
+          </div>
+
+          {authedUser ? (
+            <ReplyButton authedUserRef={authedUser} commentId={comment.id} />
+          ) : null}
         </div>
 
-        {authedUser ? (
-          <ReplyButton authedUserRef={authedUser} commentId={comment.id} />
-        ) : null}
+        <p>{comment.text}</p>
       </div>
-
-      <p>{comment.text}</p>
 
       {comment.replies.length > 0 ? (
         <div className="flex flex-col mt-2">

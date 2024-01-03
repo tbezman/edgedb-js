@@ -4,12 +4,14 @@ import type { PropsWithChildren } from "react";
 import { Suspense } from "react";
 import e from "@/dbschema/edgeql-js";
 import {
+  MostRecentCommentsQueryFragment,
   PostCardPostFragment,
   SignInSignOutButtonQueryFragment,
 } from "@/dbschema/edgeql-js/manifest";
 import { SignInSignOutButton } from "@/components/SignInSignOutButton";
 import { cookies } from "next/headers";
 import { HomeQueryParams } from "@/dbschema/edgeql-js/queries/HomeQuery";
+import { MostRecentComments } from "@/components/MostRecentComments";
 
 export default async function Home() {
   const userUuid = cookies().get("userUuid")?.value || undefined;
@@ -24,6 +26,7 @@ export default async function Home() {
       })),
 
       ...SignInSignOutButtonQueryFragment(),
+      ...MostRecentCommentsQueryFragment(),
     },
     HomeQueryParams,
     {
@@ -37,6 +40,10 @@ export default async function Home() {
         <Title>Posts</Title>
 
         <SignInSignOutButton queryRef={query} />
+      </div>
+
+      <div className="fixed top-14 left-4">
+        <MostRecentComments queryRef={query} />
       </div>
 
       <ul className="list-inside space-y-4">
