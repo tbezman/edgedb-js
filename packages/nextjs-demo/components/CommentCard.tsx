@@ -2,12 +2,13 @@ import e from "@/dbschema/edgeql-js";
 import { formatDistanceToNow } from "date-fns";
 import { ReplyButton } from "./ReplyButton";
 import { ReplyCommentCard } from "./ReplyCommentCard";
+import type {
+  CommentCardCommentFragmentRef,
+  CommentCardQueryFragmentRef,
+} from "@/dbschema/edgeql-js/manifest";
 import {
-    CommentCardCommentFragmentRef,
-    CommentCardQueryFragment,
-    CommentCardQueryFragmentDefinition,
-    CommentCardQueryFragmentRef, ReplyButtonAuthedUserFragment,
-    ReplyCommentCardCommentFragment,
+  ReplyButtonAuthedUserFragment,
+  ReplyCommentCardCommentFragment,
 } from "@/dbschema/edgeql-js/manifest";
 import { useFragment, useQueryFragment } from "../../react/src/useFragment";
 
@@ -16,20 +17,8 @@ type CommentCardProps = {
   commentRef: CommentCardCommentFragmentRef;
 };
 
-e.queryFragment("CommentCardQueryFragment", {
-  authedUser: e.select(e.User, (user) => ({
-    ...ReplyButtonAuthedUserFragment(user),
-
-    filter_single: {
-      id: e.cast(e.uuid, e.param("userUuid", e.uuid)),
-    },
-  })),
-});
-
-const CommentCardCommentFragment = e.fragment(
-  "CommentCardCommentFragment",
-  e.Comment,
-  (comment) => ({
+export function CommentCard({ commentRef, queryRef }: CommentCardProps) {
+  const comment = useFragment(commentRef, e.Comment, (comment) => ({
     id: true,
     text: true,
     created_at: true,
@@ -49,15 +38,16 @@ const CommentCardCommentFragment = e.fragment(
 
       ...ReplyCommentCardCommentFragment(reply),
     }),
-  })
-);
+  }));
+  const { authedUser } = useQueryFragment(queryRef, {
+    authedUser: e.select(e.User, (user) => ({
+      ...ReplyButtonAuthedUserFragment(user),
 
-export function CommentCard({ commentRef, queryRef }: CommentCardProps) {
-  const comment = useFragment(commentRef, CommentCardCommentFragment);
-  const { authedUser } = useQueryFragment(
-    queryRef,
-    CommentCardQueryFragmentDefinition
-  );
+      filter_single: {
+        id: e.cast(e.uuid, e.param("userUuid", e.uuid)),
+      },
+    })),
+  });
 
   return (
     <div>

@@ -19,24 +19,18 @@ type CommentSectionProps = {
 };
 
 export function CommentSection({ queryRef, postRef }: CommentSectionProps) {
-  const query = useQueryFragment(
-    queryRef,
-    e.queryFragment("CommentSectionQueryFragment", {
-      ...CommentCardQueryFragment(),
-    })
-  );
+  const query = useQueryFragment(queryRef, {
+    ...CommentCardQueryFragment(),
+  });
 
-  const post = useFragment(
-    postRef,
-    e.fragment("CommentSectionPostFragment", e.Post, () => ({
+  const post = useFragment(postRef, e.Post, () => ({
+    id: true,
+    comments: (comment) => ({
       id: true,
-      comments: (comment) => ({
-        id: true,
 
-        ...CommentCardCommentFragment(comment),
-      }),
-    }))
-  );
+      ...CommentCardCommentFragment(comment),
+    }),
+  }));
 
   return post?.comments?.map((comment) => {
     return (

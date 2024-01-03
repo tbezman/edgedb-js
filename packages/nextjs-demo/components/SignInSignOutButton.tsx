@@ -5,17 +5,19 @@ import type {
   SignInSignOutButtonQueryFragmentRef,
   UserListModalUserFragmentRef,
 } from "@/dbschema/edgeql-js/manifest";
-import {
-  SignInSignOutButtonQueryFragment,
-  UserListModalUserFragment,
-} from "@/dbschema/edgeql-js/manifest";
+import { UserListModalUserFragment } from "@/dbschema/edgeql-js/manifest";
 import { signIn, signOut } from "@/actions/auth";
 import { parseAsBoolean, useQueryState } from "next-usequerystate";
 import { useFragment, useQueryFragment } from "@edgedb/react/src/useFragment";
 
-const SignInSignOutButtonQueryFragmentDefinition = e.queryFragment(
-  "SignInSignOutButtonQueryFragment",
-  {
+export function SignInSignOutButton({
+  queryRef,
+}: {
+  queryRef: SignInSignOutButtonQueryFragmentRef;
+}) {
+  const [open, setOpen] = useQueryState("sign-in", parseAsBoolean);
+
+  const { authedUser: user, users } = useQueryFragment(queryRef, {
     users: e.select(e.User, (user) => ({
       ...UserListModalUserFragment(user),
     })),
@@ -29,20 +31,7 @@ const SignInSignOutButtonQueryFragmentDefinition = e.queryFragment(
         },
       };
     }),
-  }
-);
-
-export function SignInSignOutButton({
-  queryRef,
-}: {
-  queryRef: SignInSignOutButtonQueryFragmentRef;
-}) {
-  const [open, setOpen] = useQueryState("sign-in", parseAsBoolean);
-
-  const { authedUser: user, users } = useQueryFragment(
-    queryRef,
-    SignInSignOutButtonQueryFragmentDefinition
-  );
+  });
 
   return (
     <>

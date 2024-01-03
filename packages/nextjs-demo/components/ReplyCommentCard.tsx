@@ -14,17 +14,14 @@ type ReplyCommentCardProps = {
 };
 
 export function ReplyCommentCard({ commentRef }: ReplyCommentCardProps) {
-  const comment = useFragment(
-    commentRef,
-    e.fragment("ReplyCommentCardCommentFragment", e.Comment, (comment) => ({
+  const comment = useFragment(commentRef, e.Comment, (comment) => ({
+    id: true,
+    author: {
       id: true,
-      author: {
-        id: true,
-        name: true,
-      },
-      text: true,
-    }))
-  );
+      name: true,
+    },
+    text: true,
+  }));
 
   const elementRef = useRef<HTMLDivElement | null>(null);
 
