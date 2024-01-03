@@ -6,6 +6,7 @@ import {
   RelativeDuration,
   ConfigMemory,
   DateDuration,
+  type Executor,
 } from "edgedb";
 import type { $bool, $number } from "./modules/std";
 
@@ -55,6 +56,8 @@ import {
   literalToTypeSet,
 } from "./castMaps";
 import type { $expr_Operator } from "./funcops";
+import type { ParamsExtends, paramsToParamArgs } from "./params";
+import { params } from "./params";
 
 export const ASC: "ASC" = "ASC";
 export const DESC: "DESC" = "DESC";
@@ -1026,6 +1029,68 @@ export function fragment<
     },
   };
 }
+
+export function query<
+  Params extends ParamsExtends,
+  Shape extends { [key: string]: TypeSet }
+>(
+  client: Executor,
+  shape: Shape,
+  paramDescriptors: Params,
+  paramDefinitions: paramsToParamArgs<Params>
+): Promise<
+  setToTsType<
+    $expr_Select<{
+      __element__: ObjectType<
+        `std::FreeObject`,
+        {
+          [k in keyof Shape]: Shape[k]["__element__"] extends ObjectType
+            ? LinkDesc<
+                Shape[k]["__element__"],
+                Shape[k]["__cardinality__"],
+                {},
+                false,
+                true,
+                true,
+                false
+              >
+            : PropertyDesc<
+                Shape[k]["__element__"],
+                Shape[k]["__cardinality__"],
+                false,
+                true,
+                true,
+                false
+              >;
+        },
+        Shape
+      >; // _shape
+      __cardinality__: Cardinality.One;
+    }>
+  >
+> {
+  const builder = params(paramDescriptors, () => select(shape));
+
+  return builder.run(client, paramDefinitions);
+}
+
+// export function query<
+//   Shape extends { [key: string]: TypeSet },
+//   Params extends {
+//     [key: string]: ParamType | $expr_OptionalParam;
+//   } = Record<string, never>
+// >(
+//   executor: Executor,
+//   shape: Shape,
+//   paramDefinitions: any,
+//   paramDescriptors?: Params
+// ) {
+//   const builder = paramDescriptors
+//     ? params(paramDescriptors, () => select(shape))
+//     : select(shape);
+//
+//   return builder.run(executor, paramDefinitions);
+// }
 
 export function select<Expr extends ObjectTypeExpression>(
   expr: Expr

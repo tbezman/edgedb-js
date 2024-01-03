@@ -27,7 +27,7 @@ export function SignInSignOutButton({
         name: true,
 
         filter_single: {
-          id: e.cast(e.uuid, e.param("userUuid", e.uuid)),
+          id: e.cast(e.uuid, e.param("userUuid", e.uuid, true)),
         },
       };
     }),

@@ -16,6 +16,10 @@ import { runnableExpressionKinds } from "./query";
 import { select } from "./select";
 import { complexParamKinds } from "./__spec__";
 
+export type ParamsExtends = {
+  [key: string]: ParamType | $expr_OptionalParam;
+};
+
 export type $expr_OptionalParam<Type extends ParamType = ParamType> = {
   __kind__: ExpressionKind.OptionalParam;
   __type__: Type;
@@ -32,9 +36,7 @@ export function optional<Type extends ParamType>(
 
 export type QueryableWithParamsExpression<
   Set extends TypeSet = TypeSet,
-  Params extends {
-    [key: string]: ParamType | $expr_OptionalParam;
-  } = {}
+  Params extends ParamsExtends = {}
 > = Expression<Set, false> & {
   run(
     cxn: Executor,
@@ -44,9 +46,7 @@ export type QueryableWithParamsExpression<
 };
 
 export type $expr_WithParams<
-  Params extends {
-    [key: string]: ParamType | $expr_OptionalParam;
-  } = {},
+  Params extends ParamsExtends = {},
   Expr extends TypeSet = TypeSet
 > = QueryableWithParamsExpression<
   {
@@ -59,11 +59,7 @@ export type $expr_WithParams<
   Params
 >;
 
-type paramsToParamArgs<
-  Params extends {
-    [key: string]: ParamType | $expr_OptionalParam;
-  }
-> = {
+export type paramsToParamArgs<Params extends ParamsExtends> = {
   [key in keyof Params as Params[key] extends ParamType
     ? key
     : never]: Params[key] extends ParamType
@@ -105,11 +101,7 @@ export function param(
   }) as any;
 }
 
-type paramsToParamExprs<
-  Params extends {
-    [key: string]: ParamType | $expr_OptionalParam;
-  }
-> = {
+type paramsToParamExprs<Params extends ParamsExtends> = {
   [key in keyof Params]: Params[key] extends $expr_OptionalParam
     ? $expr_Param<key, Params[key]["__type__"], true>
     : Params[key] extends ParamType
@@ -118,9 +110,7 @@ type paramsToParamExprs<
 };
 
 export function params<
-  Params extends {
-    [key: string]: ParamType | $expr_OptionalParam;
-  } = {},
+  Params extends ParamsExtends = {},
   Expr extends Expression = Expression
 >(
   paramsDef: Params,

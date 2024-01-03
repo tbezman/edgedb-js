@@ -13,6 +13,7 @@ import {
 } from "@/dbschema/edgeql-js/manifest";
 import { SignInSignOutButton } from "@/components/SignInSignOutButton";
 import { cookies } from "next/headers";
+import { PostPageQueryParams } from "@/dbschema/edgeql-js/queries/PostPageQuery";
 
 type PageProps = {
   params: { id: string };
@@ -21,23 +22,26 @@ type PageProps = {
 export default async function PostPage({ params: pageParams }: PageProps) {
   const userUuid = cookies().get("userUuid")?.value || null;
 
-  const query = await e
-    .params({ userUuid: e.optional(e.uuid) }, (params) => {
-      return e.select({
-        post: e.select(e.Post, (post) => ({
-          title: true,
-          content: true,
+  const query = await e.query(
+    client,
+    {
+      post: e.select(e.Post, (post) => ({
+        title: true,
+        content: true,
 
-          ...CommentSectionPostFragment(post),
+        ...CommentSectionPostFragment(post),
 
-          filter_single: e.op(post.id, "=", e.uuid(pageParams.id)),
-        })),
+        filter_single: e.op(post.id, "=", e.uuid(pageParams.id)),
+      })),
 
-        ...CommentSectionQueryFragment(),
-        ...SignInSignOutButtonQueryFragment(),
-      });
-    })
-    .run(client, { userUuid });
+      ...CommentSectionQueryFragment(),
+      ...SignInSignOutButtonQueryFragment(),
+    },
+    PostPageQueryParams,
+    {
+      userUuid,
+    }
+  );
 
   if (!query.post) {
     return notFound();

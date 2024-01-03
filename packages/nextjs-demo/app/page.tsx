@@ -1,6 +1,7 @@
 import { client } from "@/client";
 import { FallbackCard, PostCard } from "@/components/PostCard";
-import { PropsWithChildren, Suspense } from "react";
+import type { PropsWithChildren } from "react";
+import { Suspense } from "react";
 import e from "@/dbschema/edgeql-js";
 import {
   PostCardPostFragment,
@@ -8,25 +9,27 @@ import {
 } from "@/dbschema/edgeql-js/manifest";
 import { SignInSignOutButton } from "@/components/SignInSignOutButton";
 import { cookies } from "next/headers";
+import { HomeQueryParams } from "@/dbschema/edgeql-js/queries/HomeQuery";
 
 export default async function Home() {
   const userUuid = cookies().get("userUuid")?.value || undefined;
 
-  const query = await e
-    .params({ userUuid: e.optional(e.uuid) }, (params) => {
-      return e.select({
-        posts: e.select(e.Post, (post) => ({
-          id: true,
+  const query = await e.query(
+    client,
+    {
+      posts: e.select(e.Post, (post) => ({
+        id: true,
 
-          ...PostCardPostFragment(post),
-        })),
+        ...PostCardPostFragment(post),
+      })),
 
-        ...SignInSignOutButtonQueryFragment(),
-      });
-    })
-    .run(client, {
+      ...SignInSignOutButtonQueryFragment(),
+    },
+    HomeQueryParams,
+    {
       userUuid,
-    });
+    }
+  );
 
   return (
     <div className="py-4 px-4">

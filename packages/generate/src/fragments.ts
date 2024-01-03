@@ -1,8 +1,68 @@
 import { adapter, type Client } from "edgedb";
 import type { CommandOptions } from "./commandutil";
+import type { CallExpression } from "ts-morph";
 import { Project, SyntaxKind, VariableDeclarationKind } from "ts-morph";
 
 const { path } = adapter;
+
+type ParamDefinition = {
+  name: string;
+  type: string;
+  optional: boolean;
+};
+
+type Query = {
+  name: string;
+  text: string;
+  children: string[];
+  params: ParamDefinition[];
+};
+
+type Fragment =
+  | {
+      kind: "normal";
+      name: string;
+      type: string;
+      text: string;
+      children: string[];
+      params: ParamDefinition[];
+    }
+  | {
+      kind: "query";
+      name: string;
+      text: string;
+      children: string[];
+      params: ParamDefinition[];
+    };
+
+function collectChildren(root: CallExpression) {
+  return [...root.getText().matchAll(/\.\.\.(\w+)/g)].map((match) => match[1]);
+}
+
+function collectParams(root: CallExpression): ParamDefinition[] {
+  const callExprs = root.getDescendantsOfKind(SyntaxKind.CallExpression);
+
+  return callExprs
+    .filter((expression) => {
+      const pae = expression?.getChildAtIndexIfKind(
+        0,
+        SyntaxKind.PropertyAccessExpression
+      );
+
+      const identifiers = pae?.getChildrenOfKind(SyntaxKind.Identifier) ?? [];
+      const [first, second] = identifiers;
+
+      return first?.getText() === "e" && second?.getText() === "param";
+    })
+    .map((expression) => {
+      const name = expression.getArguments()[0].getText().slice(1, -1);
+      const type = expression.getArguments()[1].getText();
+
+      const optional = expression.getArguments()[2]?.getText() === "true";
+
+      return { name, type, optional: optional };
+    });
+}
 
 export function generateFragmentManifest(params: {
   root: string | null;
@@ -27,20 +87,9 @@ export function generateFragmentManifest(params: {
     }
   );
 
-  type Fragment =
-    | {
-        kind: "normal";
-        name: string;
-        type: string;
-        text: string;
-      }
-    | {
-        kind: "query";
-        name: string;
-        text: string;
-      };
-
   const fragments: Array<Fragment> = [];
+  const queries: Array<Query> = [];
+
   for (const file of files) {
     file
       .getDescendantsOfKind(SyntaxKind.CallExpression)
@@ -83,6 +132,25 @@ export function generateFragmentManifest(params: {
               name: fragmentName,
               text: callExpression.getText(),
               type: typeName,
+              params: collectParams(callExpression),
+              children: collectChildren(callExpression),
+            });
+          } else if (
+            firstText === "e" &&
+            secondText === "query" &&
+            callExpression
+          ) {
+            const parentFunctionName = callExpression
+              .getFirstAncestorByKind(SyntaxKind.FunctionDeclaration)
+              ?.getName();
+
+            const name = `${parentFunctionName}Query`;
+
+            queries.push({
+              name,
+              text: callExpression.getText(),
+              params: collectParams(callExpression),
+              children: collectChildren(callExpression),
             });
           }
         } else if (
@@ -103,6 +171,8 @@ export function generateFragmentManifest(params: {
             name,
             type,
             text: `e.fragment("${name}", ${expr.getText()}, ${shape.getText()})`,
+            params: collectParams(callExpression),
+            children: collectChildren(callExpression),
           });
         } else if (maybeUserFragmentIdent?.getText() === "useQueryFragment") {
           const parentFunctionName = maybeUserFragmentIdent
@@ -116,9 +186,64 @@ export function generateFragmentManifest(params: {
             kind: "query",
             name,
             text: `e.queryFragment("${name}", ${shape.getText()})`,
+            params: collectParams(callExpression),
+            children: collectChildren(callExpression),
           });
         }
       });
+  }
+
+  for (const query of queries) {
+    const queryFile = project.createSourceFile(
+      path.join(params.schemaDir, "edgeql-js", "queries", query.name + ".ts"),
+      undefined,
+      {
+        overwrite: true,
+      }
+    );
+
+    queryFile.addImportDeclaration({
+      moduleSpecifier: "../index",
+      defaultImport: "e",
+    });
+
+    for (const child of query.children) {
+      queryFile.addImportDeclaration({
+        namedImports: [`${child}Params`],
+        moduleSpecifier: "../fragments/" + child,
+      });
+    }
+
+    queryFile.addVariableStatement({
+      isExported: true,
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: `${query.name}Params`,
+          initializer: (writer) => {
+            writer.write(`{`);
+            writer.indent(() => {
+              for (const param of query.params) {
+                if (param.optional) {
+                  writer.write(`${param.name}: e.optional(${param.type}),`);
+                } else {
+                  writer.write(`${param.name}: ${param.type},`);
+                }
+              }
+
+              for (const child of query.children) {
+                writer.write(`...${child}Params,`);
+              }
+            });
+
+            writer.write(`} as const`);
+          },
+        },
+      ],
+    });
+
+    queryFile.formatText();
+    queryFile.saveSync();
   }
 
   for (const fragment of fragments) {
@@ -176,6 +301,7 @@ export function generateFragmentManifest(params: {
             `${fragmentName}Masked`,
             `${fragmentName}Raw`,
             `${fragmentName}Definition`,
+            `${fragmentName}Params`,
           ],
         };
       })
@@ -194,6 +320,33 @@ export function generateFragmentManifest(params: {
           : Expr[k];
       }>
       `,
+    });
+
+    fragmentFile.addVariableStatement({
+      isExported: true,
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: `${fragment.name}Params`,
+          initializer: (writer) => {
+            writer.write(`{`);
+            writer.indent(() => {
+              for (const param of fragment.params) {
+                if (param.optional) {
+                  writer.write(`${param.name}: e.optional(${param.type}),`);
+                } else {
+                  writer.write(`${param.name}: ${param.type},`);
+                }
+              }
+
+              for (const child of fragment.children) {
+                writer.write(`...${child}Params,`);
+              }
+            });
+            writer.write(`} as const`);
+          },
+        },
+      ],
     });
 
     fragmentFile.addTypeAlias({
