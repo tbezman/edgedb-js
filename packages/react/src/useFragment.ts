@@ -8,16 +8,29 @@ import equal from "fast-deep-equal";
 
 // Strictly importing the type here
 import type {
-  FragmentReturnType,
-  ShapeExtends,
-} from "../../generate/src/syntax/select";
-import type {
   ObjectTypeExpression,
   TypeSet,
 } from "../../generate/src/syntax/typesystem";
-import type { QueryFragmentReturnType } from "nextjs-demo/dbschema/edgeql-js/select";
+import type {
+  FragmentPullReturnType,
+  FragmentReturnType,
+  ShapeExtends,
+  QueryFragmentReturnType,
+  ScopeParam,
+  QueryFragmentPullReturnType,
+} from "nextjs-demo/dbschema/edgeql-js/select";
 
 const clone = rfdc();
+
+export function useFragment<
+  Ref,
+  Shape extends ShapeExtends<Expr>,
+  Expr extends ObjectTypeExpression
+>(
+  ref: Ref,
+  expr: Expr,
+  shape: (scope: ScopeParam<Expr>) => Readonly<Shape>
+): FragmentPullReturnType<Expr, Shape>;
 
 export function useFragment<
   FN extends string,
@@ -142,9 +155,9 @@ export function useFragment<
   return resultFromCache;
 }
 
-export function useQueryFragment<
-  FN extends string,
-  F extends QueryFragmentReturnType<FN, any>
->(ref: Parameters<F["pull"]>[0], fragment: F): ReturnType<F["pull"]> {
-  return fragment.pull(ref) as ReturnType<F["pull"]>;
+export function useQueryFragment<Ref, Shape extends { [key: string]: TypeSet }>(
+  ref: Ref,
+  shape: Shape
+): QueryFragmentPullReturnType<Shape> {
+  return (shape as any).pull(ref);
 }
