@@ -2,8 +2,14 @@ import e from "@/dbschema/edgeql-js";
 import { useQueryFragment } from "../../react/src/useFragment";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
+import type { MostRecentCommentsQueryFragmentRef } from "@/dbschema/edgeql-js/fragments/MostRecentCommentsQueryFragment";
+import { LoadableLink } from "@/components/LoadableLink";
 
-export function MostRecentComments({ queryRef }: { queryRef: any }) {
+export function MostRecentComments({
+  queryRef,
+}: {
+  queryRef: MostRecentCommentsQueryFragmentRef;
+}) {
   const { comments } = useQueryFragment(queryRef, {
     comments: e.select(e.Comment, (comment) => ({
       id: true,
@@ -46,12 +52,12 @@ export function MostRecentComments({ queryRef }: { queryRef: any }) {
                 </span>
               </div>
               <p className="line-clamp-2 text-sm">{comment.text}</p>
-              <Link
+              <LoadableLink
                 className="text-sm text-blue-700 underline"
                 href={`/post/${comment.parentPost?.id}?highlightedComment=${comment.id}`}
               >
                 Read More
-              </Link>
+              </LoadableLink>
             </li>
           );
         })}

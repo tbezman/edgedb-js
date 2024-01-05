@@ -81,7 +81,7 @@ export function CommentCard({ commentRef, queryRef }: CommentCardProps) {
             </a>
             <span>-</span>
             <span className="text-sm">
-              {formatDistanceToNow(comment.created_at!)} ago
+              {formatDistanceToNow(comment.created_at)} ago
             </span>
           </div>
 

@@ -14,6 +14,7 @@ import {
 import { SignInSignOutButton } from "@/components/SignInSignOutButton";
 import { cookies } from "next/headers";
 import { PostPageQueryParams } from "@/dbschema/edgeql-js/queries/PostPageQuery";
+import { LoadableLink } from "@/components/LoadableLink";
 
 type PageProps = {
   params: { id: string };
@@ -84,13 +85,13 @@ function Header({
 }) {
   return (
     <div className="flex items-center justify-between sticky top-4">
-      <Link
+      <LoadableLink
         href="/"
         className="flex items-center space-x-1 underline sticky mt-4 ml-4"
       >
         &lt;
         <span>Back to home</span>
-      </Link>
+      </LoadableLink>
 
       <SignInSignOutButton queryRef={queryRef} />
     </div>
