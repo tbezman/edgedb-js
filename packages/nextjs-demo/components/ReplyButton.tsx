@@ -1,5 +1,6 @@
 "use client";
 import e from "@/dbschema/edgeql-js";
+import { motion, AnimatePresence } from "framer-motion";
 import { faker } from "@faker-js/faker";
 
 import Link from "next/link";
@@ -122,27 +123,30 @@ export function ReplyButton({ commentId, authedUserRef }: ReplyButtonProps) {
         Reply
       </Link>
 
-      {replyTo === commentId ? (
-        <form
-          ref={formRef}
-          action={handleSubmit}
-          onSubmit={insertOptimistic}
-          onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 z-10 bg-white p-4 rounded flex flex-col shadow"
-        >
-          <textarea
-            name="text"
-            className="w-[300px] rounded p-1 border border-blue-300"
-            rows={6}
-            defaultValue={faker.lorem.paragraph(3)}
-          />
+      <AnimatePresence>
+        {replyTo === commentId ? (
+          <motion.form
+            ref={formRef}
+            animate={{ y: [4, 0], opacity: [0, 1] }}
+            action={handleSubmit}
+            onSubmit={insertOptimistic}
+            onClick={(e) => e.stopPropagation()}
+            className="absolute right-0 mt-4 z-10 bg-white px-6 py-4 rounded flex flex-col drop-shadow-2xl"
+          >
+            <textarea
+              name="text"
+              className="w-[500px] rounded p-1 border border-blue-300"
+              rows={10}
+              defaultValue={faker.lorem.paragraph(3)}
+            />
 
-          <input name="commentId" type="hidden" value={commentId} />
-          <input name="newCommentId" type="hidden" value={nextCommentId} />
+            <input name="commentId" type="hidden" value={commentId} />
+            <input name="newCommentId" type="hidden" value={nextCommentId} />
 
-          <SubmitButton />
-        </form>
-      ) : null}
+            <SubmitButton />
+          </motion.form>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
@@ -151,7 +155,7 @@ function SubmitButton() {
   const status = useFormStatus();
 
   return (
-    <button className="bg-blue-900 text-white w-24 mt-2 self-end rounded">
+    <button className="bg-blue-900 text-white w-24 mt-2 p-2 self-end rounded">
       {status.pending ? "..." : "Reply"}
     </button>
   );
