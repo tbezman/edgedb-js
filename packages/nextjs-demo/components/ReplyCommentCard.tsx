@@ -7,6 +7,7 @@ import clsx from "clsx";
 import { isOptimistic } from "../../react/src/cache";
 import type { ReplyCommentCardCommentFragmentRef } from "@/dbschema/edgeql-js/manifest";
 import { useFragment } from "../../react/src/useFragment";
+import { PlainLink } from "@/components/LoadableLink";
 
 type ReplyCommentCardProps = {
   highlightedCommentId?: string;
@@ -64,9 +65,7 @@ export function ReplyCommentCard({ commentRef }: ReplyCommentCardProps) {
       </div>
 
       <div className="flex-col">
-        <a href="#" className="text-blue-700 underline">
-          {comment.author.name}
-        </a>
+        <PlainLink href="#">{comment.author.name}</PlainLink>
         <p>{comment.text}</p>
       </div>
     </div>

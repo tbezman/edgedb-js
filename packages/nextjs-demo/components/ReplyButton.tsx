@@ -18,6 +18,9 @@ import {
 
 import { v4 } from "uuid";
 import { useFragment } from "../../react/src/useFragment";
+import { PlainLink } from "@/components/LoadableLink";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 e.fragment("ReplyButtonAuthedUserFragment", e.User, (user) => ({
   id: true,
@@ -110,7 +113,8 @@ export function ReplyButton({ commentId, authedUserRef }: ReplyButtonProps) {
 
   return (
     <div className="relative">
-      <Link
+      <PlainLink
+        noVisit
         replace
         scroll={false}
         onClick={(e) => {
@@ -118,10 +122,9 @@ export function ReplyButton({ commentId, authedUserRef }: ReplyButtonProps) {
           setReplyTo(commentId);
         }}
         href={`?reply_to=${commentId}`}
-        className="text-blue-700 underline text-sm"
       >
         Reply
-      </Link>
+      </PlainLink>
 
       <AnimatePresence>
         {replyTo === commentId ? (
@@ -131,11 +134,11 @@ export function ReplyButton({ commentId, authedUserRef }: ReplyButtonProps) {
             action={handleSubmit}
             onSubmit={insertOptimistic}
             onClick={(e) => e.stopPropagation()}
-            className="absolute right-0 mt-4 z-10 bg-white px-6 py-4 rounded flex flex-col drop-shadow-2xl"
+            className="absolute right-0 mt-4 z-10 bg-secondary p-4 rounded flex flex-col drop-shadow-2xl"
           >
-            <textarea
+            <Textarea
               name="text"
-              className="w-[500px] rounded p-1 border border-blue-300"
+              className="w-[500px] text-lg"
               rows={10}
               defaultValue={faker.lorem.paragraph(3)}
             />
@@ -154,9 +157,5 @@ export function ReplyButton({ commentId, authedUserRef }: ReplyButtonProps) {
 function SubmitButton() {
   const status = useFormStatus();
 
-  return (
-    <button className="bg-blue-900 text-white w-24 mt-2 p-2 self-end rounded">
-      {status.pending ? "..." : "Reply"}
-    </button>
-  );
+  return <Button className="mt-2">{status.pending ? "..." : "Reply"}</Button>;
 }

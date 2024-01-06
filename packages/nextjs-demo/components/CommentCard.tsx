@@ -15,6 +15,7 @@ import { useFragment, useQueryFragment } from "../../react/src/useFragment";
 import { useQueryState } from "next-usequerystate";
 import clsx from "clsx";
 import { useEffect, useRef } from "react";
+import { LoadableLink } from "@/components/LoadableLink";
 
 type CommentCardProps = {
   queryRef: CommentCardQueryFragmentRef;
@@ -76,9 +77,7 @@ export function CommentCard({ commentRef, queryRef }: CommentCardProps) {
       >
         <div className={clsx("flex items-baseline justify-between")}>
           <div className="flex items-baseline space-x-1">
-            <a href="#" className="text-blue-700 underline">
-              {comment.author.name}
-            </a>
+            <LoadableLink href="#">{comment.author.name}</LoadableLink>
             <span>-</span>
             <span className="text-sm">
               {formatDistanceToNow(comment.created_at)} ago

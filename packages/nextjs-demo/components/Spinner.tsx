@@ -2,7 +2,7 @@ export function Spinner({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
-      className={`text-blue-200 animate-spin fill-blue-600 ${className}`}
+      className={`text-cyan-200 animate-spin fill-white ${className}`}
       viewBox="0 0 100 101"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

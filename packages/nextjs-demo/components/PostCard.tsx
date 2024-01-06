@@ -1,13 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useTransition } from "react";
 import e from "@/dbschema/edgeql-js";
-import { Spinner } from "./Spinner";
 import type { PostCardPostFragmentRef } from "@/dbschema/edgeql-js/manifest";
 import { useFragment } from "../../react/src/useFragment";
 import { LoadableLink } from "@/components/LoadableLink";
+import { Card } from "@/components/ui/card";
 
 type PostCardProps = {
   postRef: PostCardPostFragmentRef;
@@ -20,21 +17,16 @@ export function PostCard({ postRef }: PostCardProps) {
     content: true,
   }));
 
-  const router = useRouter();
-  const [isTransitioning, startTransition] = useTransition();
-
   return (
-    <article className="flex flex-col max-w-xl mx-auto">
-      <LoadableLink
-        draggable={false}
-        href={`/post/${post.id}`}
-        className=""
-      >
-        <h3 className="font-medium">{post.title}</h3>
-      </LoadableLink>
+    <Card className="flex flex-col max-w-2xl mx-auto px-6 py-1">
+      <article>
+        <LoadableLink draggable={false} href={`/post/${post.id}`} className="">
+          <h3 className="font-medium">{post.title}</h3>
+        </LoadableLink>
 
-      <p className="line-clamp-2">{post.content}</p>
-    </article>
+        <p className="line-clamp-2">{post.content}</p>
+      </article>
+    </Card>
   );
 }
 

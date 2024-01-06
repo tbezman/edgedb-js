@@ -9,6 +9,7 @@ import { UserListModalUserFragment } from "@/dbschema/edgeql-js/manifest";
 import { signIn, signOut } from "@/actions/auth";
 import { parseAsBoolean, useQueryState } from "next-usequerystate";
 import { useFragment, useQueryFragment } from "@edgedb/react/src/useFragment";
+import { Button } from "@/components/ui/button";
 
 export function SignInSignOutButton({
   queryRef,
@@ -40,16 +41,13 @@ export function SignInSignOutButton({
           <div>{user.name}</div>
 
           <form action={signOut}>
-            <button className="underline text-blue-700">Sign Out</button>
+            <Button size="sm">Sign Out</Button>
           </form>
         </div>
       ) : (
-        <button
-          onClick={() => setOpen(true)}
-          className="underline text-blue-700"
-        >
+        <Button size="sm" onClick={() => setOpen(true)}>
           Sign In
-        </button>
+        </Button>
       )}
 
       {open && (
@@ -103,7 +101,7 @@ function UserListModal({
         onClick={(e) => {
           e.stopPropagation();
         }}
-        className="bg-white rounded-lg p-4 w-full max-w-sm shadow-xl"
+        className="bg-secondary rounded-lg p-4 w-full max-w-sm shadow-xl"
       >
         <h2 className="text-2xl font-bold mb-4">Users</h2>
 
@@ -118,9 +116,7 @@ function UserListModal({
                   }}
                 >
                   <input type="hidden" name="userUuid" value={user.id} />
-                  <button className="text-blue-700 underline">
-                    {user.name}
-                  </button>
+                  <Button size="sm">{user.name}</Button>
                 </form>
               </li>
             );

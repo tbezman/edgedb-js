@@ -4,14 +4,14 @@ import type { PropsWithChildren } from "react";
 import { Suspense } from "react";
 import e from "@/dbschema/edgeql-js";
 import {
+  HeaderQueryFragment,
   MostRecentCommentsQueryFragment,
   PostCardPostFragment,
-  SignInSignOutButtonQueryFragment,
 } from "@/dbschema/edgeql-js/manifest";
-import { SignInSignOutButton } from "@/components/SignInSignOutButton";
 import { cookies } from "next/headers";
 import { HomeQueryParams } from "@/dbschema/edgeql-js/queries/HomeQuery";
 import { MostRecentComments } from "@/components/MostRecentComments";
+import { Header, HeaderTitle } from "@/components/Header";
 
 export default async function Home() {
   const userUuid = cookies().get("userUuid")?.value || undefined;
@@ -25,7 +25,7 @@ export default async function Home() {
         ...PostCardPostFragment(post),
       })),
 
-      ...SignInSignOutButtonQueryFragment(),
+      ...HeaderQueryFragment(),
       ...MostRecentCommentsQueryFragment(),
     },
     HomeQueryParams,
@@ -35,14 +35,12 @@ export default async function Home() {
   );
 
   return (
-    <div className="py-4 px-4">
-      <div className="flex items-center justify-between sticky top-4">
-        <Title>Posts</Title>
+    <div className="px-4">
+      <Header queryRef={query}>
+        <HeaderTitle>Posts</HeaderTitle>
+      </Header>
 
-        <SignInSignOutButton queryRef={query} />
-      </div>
-
-      <div className="fixed top-14 left-4">
+      <div className="fixed top-18 left-4">
         <MostRecentComments queryRef={query} />
       </div>
 

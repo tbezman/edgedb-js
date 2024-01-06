@@ -5,7 +5,10 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import e from "@/dbschema/edgeql-js";
 import { CommentSection } from "@/components/CommentSection";
-import type { SignInSignOutButtonQueryFragmentRef } from "@/dbschema/edgeql-js/manifest";
+import {
+  HeaderQueryFragment,
+  SignInSignOutButtonQueryFragmentRef,
+} from "@/dbschema/edgeql-js/manifest";
 import {
   CommentSectionPostFragment,
   CommentSectionQueryFragment,
@@ -15,6 +18,7 @@ import { SignInSignOutButton } from "@/components/SignInSignOutButton";
 import { cookies } from "next/headers";
 import { PostPageQueryParams } from "@/dbschema/edgeql-js/queries/PostPageQuery";
 import { LoadableLink } from "@/components/LoadableLink";
+import { Header } from "@/components/Header";
 
 type PageProps = {
   params: { id: string };
@@ -36,7 +40,7 @@ export default async function PostPage({ params: pageParams }: PageProps) {
       })),
 
       ...CommentSectionQueryFragment(),
-      ...SignInSignOutButtonQueryFragment(),
+      ...HeaderQueryFragment(),
     },
     PostPageQueryParams,
     {
@@ -49,8 +53,12 @@ export default async function PostPage({ params: pageParams }: PageProps) {
   }
 
   return (
-    <>
-      <Header queryRef={query} />
+    <div className="px-4">
+      <Header queryRef={query}>
+        <LoadableLink noVisit href="/" replace>
+          Back
+        </LoadableLink>
+      </Header>
 
       <article className="flex flex-col max-w-2xl py-4 mx-auto">
         <h1 className="text-2xl font-bold mb-2">{query.post.title}</h1>
@@ -74,26 +82,6 @@ export default async function PostPage({ params: pageParams }: PageProps) {
           </Suspense>
         </div>
       </article>
-    </>
-  );
-}
-
-function Header({
-  queryRef,
-}: {
-  queryRef: SignInSignOutButtonQueryFragmentRef;
-}) {
-  return (
-    <div className="flex items-center justify-between sticky top-4">
-      <LoadableLink
-        href="/"
-        className="flex items-center space-x-1 underline sticky mt-4 ml-4"
-      >
-        &lt;
-        <span>Back to home</span>
-      </LoadableLink>
-
-      <SignInSignOutButton queryRef={queryRef} />
     </div>
   );
 }

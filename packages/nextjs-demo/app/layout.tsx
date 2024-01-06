@@ -18,7 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} bg-background text-blue-950 font-sans`}
+        className={`${inter.variable} bg-background font-sans text-zinc-100 dark`}
       >
         <EdgeDBProvider>{children}</EdgeDBProvider>
       </body>
