@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { EdgeDBProvider } from "@/app/EdgeDBProvider";
-import { SignInSignOutButton } from "@/components/SignInSignOutButton";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -18,7 +17,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-blue-50 text-blue-950`}>
+      <body
+        className={`${inter.variable} bg-background text-blue-950 font-sans`}
+      >
         <EdgeDBProvider>{children}</EdgeDBProvider>
       </body>
     </html>
