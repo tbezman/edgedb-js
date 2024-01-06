@@ -55,7 +55,7 @@ export default async function PostPage({ params: pageParams }: PageProps) {
   return (
     <div className="px-4">
       <Header queryRef={query}>
-        <LoadableLink noVisit href="/" replace>
+        <LoadableLink noVisit href="/">
           Back
         </LoadableLink>
       </Header>

@@ -21,6 +21,11 @@ import { useFragment } from "../../react/src/useFragment";
 import { PlainLink } from "@/components/LoadableLink";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 e.fragment("ReplyButtonAuthedUserFragment", e.User, (user) => ({
   id: true,
@@ -113,21 +118,23 @@ export function ReplyButton({ commentId, authedUserRef }: ReplyButtonProps) {
 
   return (
     <div className="relative">
-      <PlainLink
-        noVisit
-        replace
-        scroll={false}
-        onClick={(e) => {
-          e.preventDefault();
-          setReplyTo(commentId);
-        }}
-        href={`?reply_to=${commentId}`}
-      >
-        Reply
-      </PlainLink>
+      <Popover>
+        <PopoverTrigger>
+          <PlainLink
+            noVisit
+            replace
+            scroll={false}
+            onClick={(e) => {
+              e.preventDefault();
+              setReplyTo(commentId);
+            }}
+            href={`?reply_to=${commentId}`}
+          >
+            Reply
+          </PlainLink>
+        </PopoverTrigger>
 
-      <AnimatePresence>
-        {replyTo === commentId ? (
+        <PopoverContent>
           <motion.form
             ref={formRef}
             animate={{ y: [4, 0], opacity: [0, 1] }}
@@ -148,8 +155,8 @@ export function ReplyButton({ commentId, authedUserRef }: ReplyButtonProps) {
 
             <SubmitButton />
           </motion.form>
-        ) : null}
-      </AnimatePresence>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
