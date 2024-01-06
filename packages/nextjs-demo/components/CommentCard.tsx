@@ -66,13 +66,14 @@ export function CommentCard({ commentRef, queryRef }: CommentCardProps) {
         behavior: "smooth",
       });
     }
-  }, []);
+  }, [isHighlighted]);
 
   return (
     <div>
       <div
+        ref={wrapperRef}
         className={clsx(`flex flex-col`, {
-          "flash shadow -m-2 p-2 rounded-lg": isHighlighted,
+          "flash drop-shadow -m-2 p-2 rounded-lg bg-cyan-50": isHighlighted,
         })}
       >
         <div className={clsx("flex items-baseline justify-between")}>
