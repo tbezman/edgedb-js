@@ -863,10 +863,17 @@ export type ShapeExtends<Expr extends ObjectTypeExpression> =
 
 function $shape<
   Expr extends ObjectTypeExpression,
-  Shape extends ShapeExtends<Expr> // <Expr["__element__"]>
+  Element extends Expr["__element__"],
+  Shape extends objectTypeToSelectShape<Element> & SelectModifiers<Element>,
+  Scope extends $scopify<Element> &
+    $linkPropify<{
+      [k in keyof Expr]: k extends "__cardinality__"
+        ? Cardinality.One
+        : Expr[k];
+    }>
 >(
   expr: Expr,
-  _shape: (scope: ScopeParam<Expr>) => Readonly<Shape>
+  _shape: (scope: Scope) => Readonly<Shape>
 ): (scope: unknown) => Readonly<Shape>;
 function $shape(_a: unknown, b: (...args: any) => any) {
   return b;
@@ -1074,24 +1081,6 @@ export function query<
   return builder.run(client, paramDefinitions);
 }
 
-// export function query<
-//   Shape extends { [key: string]: TypeSet },
-//   Params extends {
-//     [key: string]: ParamType | $expr_OptionalParam;
-//   } = Record<string, never>
-// >(
-//   executor: Executor,
-//   shape: Shape,
-//   paramDefinitions: any,
-//   paramDescriptors?: Params
-// ) {
-//   const builder = paramDescriptors
-//     ? params(paramDescriptors, () => select(shape))
-//     : select(shape);
-//
-//   return builder.run(executor, paramDefinitions);
-// }
-
 export function select<Expr extends ObjectTypeExpression>(
   expr: Expr
 ): $expr_Select<{
@@ -1107,22 +1096,22 @@ export function select<Expr extends TypeSet>(
 ): $expr_Select<stripSet<Expr>>;
 export function select<
   Expr extends ObjectTypeExpression,
-  Shape extends ShapeExtends<Expr>,
+  Element extends Expr["__element__"],
+  Scope extends $scopify<Element> &
+    $linkPropify<{
+      [k in keyof Expr]: k extends "__cardinality__"
+        ? Cardinality.One
+        : Expr[k];
+    }>,
+  Shape extends objectTypeToSelectShape<Element> & SelectModifiers<Element>,
   Modifiers extends UnknownSelectModifiers = Pick<Shape, SelectModifierNames>
 >(
   expr: Expr,
-  shape: (
-    scope: $scopify<Expr["__element__"]> &
-      $linkPropify<{
-        [k in keyof Expr]: k extends "__cardinality__"
-          ? Cardinality.One
-          : Expr[k];
-      }>
-  ) => Readonly<Shape>
+  shape: (scope: Scope) => Readonly<Shape>
 ): $expr_Select<{
   __element__: ObjectType<
-    `${Expr["__element__"]["__name__"]}`, // _shape
-    Expr["__element__"]["__pointers__"],
+    `${Element["__name__"]}`, // _shape
+    Element["__pointers__"],
     Omit<normaliseShape<Shape>, SelectModifierNames>
   >;
   __cardinality__: ComputeSelectCardinality<Expr, Modifiers>;
