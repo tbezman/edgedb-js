@@ -13,7 +13,7 @@ export function Header({
   });
 
   return (
-    <div className="flex items-center justify-between top-0 sticky py-4">
+    <div className="flex items-center justify-between top-0 sticky pt-4 pb-12">
       {children ?? <div />}
 
       <SignInSignOutButton queryRef={query} />

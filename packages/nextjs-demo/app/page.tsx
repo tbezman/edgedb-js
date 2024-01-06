@@ -40,7 +40,7 @@ export default async function Home() {
         <HeaderTitle>Posts</HeaderTitle>
       </Header>
 
-      <div className="fixed top-18 left-4">
+      <div className="fixed top-[100px] left-4">
         <MostRecentComments queryRef={query} />
       </div>
 

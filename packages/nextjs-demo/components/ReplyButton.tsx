@@ -1,9 +1,6 @@
 "use client";
 import e from "@/dbschema/edgeql-js";
-import { motion, AnimatePresence } from "framer-motion";
 import { faker } from "@faker-js/faker";
-
-import Link from "next/link";
 import { useContext, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -116,16 +113,17 @@ export function ReplyButton({ commentId, authedUserRef }: ReplyButtonProps) {
     };
   }, [commentId, replyTo, router, setReplyTo]);
 
+  const open = replyTo === commentId;
+
   return (
     <div className="relative">
-      <Popover>
+      <Popover open={open}>
         <PopoverTrigger>
           <PlainLink
             noVisit
             replace
             scroll={false}
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setReplyTo(commentId);
             }}
             href={`?reply_to=${commentId}`}
@@ -134,18 +132,17 @@ export function ReplyButton({ commentId, authedUserRef }: ReplyButtonProps) {
           </PlainLink>
         </PopoverTrigger>
 
-        <PopoverContent>
-          <motion.form
+        <PopoverContent align="end" className="w-[500px]">
+          <form
             ref={formRef}
-            animate={{ y: [4, 0], opacity: [0, 1] }}
             action={handleSubmit}
             onSubmit={insertOptimistic}
             onClick={(e) => e.stopPropagation()}
-            className="absolute right-0 mt-4 z-10 bg-secondary p-4 rounded flex flex-col drop-shadow-2xl"
+            className="flex flex-col"
           >
             <Textarea
               name="text"
-              className="w-[500px] text-lg"
+              className="text-lg"
               rows={10}
               defaultValue={faker.lorem.paragraph(3)}
             />
@@ -154,7 +151,7 @@ export function ReplyButton({ commentId, authedUserRef }: ReplyButtonProps) {
             <input name="newCommentId" type="hidden" value={nextCommentId} />
 
             <SubmitButton />
-          </motion.form>
+          </form>
         </PopoverContent>
       </Popover>
     </div>
@@ -164,5 +161,5 @@ export function ReplyButton({ commentId, authedUserRef }: ReplyButtonProps) {
 function SubmitButton() {
   const status = useFormStatus();
 
-  return <Button className="mt-2">{status.pending ? "..." : "Reply"}</Button>;
+  return <Button className="mt-4">{status.pending ? "..." : "Reply"}</Button>;
 }
