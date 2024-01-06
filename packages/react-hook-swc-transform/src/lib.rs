@@ -18,6 +18,8 @@ use swc_ecma_parser::{Syntax, TsConfig};
 pub struct TransformVisitor {
     function_name: Option<String>,
     filename: Option<String>,
+
+    requires_import: bool,
 }
 
 impl VisitMut for TransformVisitor {
@@ -30,6 +32,8 @@ impl VisitMut for TransformVisitor {
     fn visit_mut_call_expr(&mut self, call_expr: &mut CallExpr) {
         match &call_expr.callee {
             Callee::Expr(box Expr::Ident(ident)) if ident.sym.as_str() == "useQueryFragment" => {
+                self.requires_import = true;
+
                 let args = &mut call_expr.args;
                 let shape = args.remove(1);
 
@@ -71,6 +75,8 @@ impl VisitMut for TransformVisitor {
                 args.insert(1, fragment_expr);
             }
             Callee::Expr(box Expr::Ident(ident)) if ident.sym.as_str() == "useFragment" => {
+                self.requires_import = true;
+
                 if call_expr.args.len() != 3 {
                     return;
                 }
@@ -143,18 +149,49 @@ pub fn process_transform(program: Program, metadata: TransformPluginProgramMetad
         None
     };
 
-    tracing::info!("Filename: {:?}", filename);
-
     if let Some(filename) = &filename {
         if filename.contains("manifest") {
             return program;
         }
     }
 
-    return program.fold_with(&mut as_folder(TransformVisitor {
+    let mut transform_visitor = TransformVisitor {
         filename,
         function_name: None,
-    }));
+        requires_import: false,
+    };
+
+    let mut transformed = program.fold_with(&mut as_folder(&mut transform_visitor));
+
+    // add import e from '../index' to the transformed output
+    if transform_visitor.requires_import {
+        let import_stmt = ModuleItem::ModuleDecl(ModuleDecl::Import(ImportDecl {
+            with: None,
+            span: Default::default(),
+            specifiers: vec![ImportSpecifier::Default(ImportDefaultSpecifier {
+                span: Default::default(),
+                local: Ident {
+                    span: Default::default(),
+                    optional: false,
+                    sym: Atom::from("e"),
+                },
+            })],
+            src: Box::new(Str {
+                raw: None,
+                span: Default::default(),
+                value: Atom::from("@/dbschema/edgeql-js"),
+            }),
+            type_only: false,
+        }));
+
+        transformed
+            .as_mut_module()
+            .unwrap()
+            .body
+            .insert(1, import_stmt);
+    }
+
+    return transformed;
 }
 
 #[test]
@@ -169,6 +206,7 @@ fn query_fragment_testt() {
             as_folder(TransformVisitor {
                 filename: Some("".to_string()),
                 function_name: None,
+                requires_import: false,
             })
         },
         r#"
@@ -212,6 +250,7 @@ fn fragment_test() {
             as_folder(TransformVisitor {
                 filename: Some("".to_string()),
                 function_name: None,
+                requires_import: false,
             })
         },
         r#"
