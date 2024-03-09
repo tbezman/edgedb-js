@@ -1,5 +1,3 @@
-#![feature(box_patterns)]
-
 use std::path::PathBuf;
 
 use swc_common::plugin::metadata::TransformPluginMetadataContextKind;
@@ -23,118 +21,123 @@ pub struct TransformVisitor {
 }
 
 impl VisitMut for TransformVisitor {
+    fn visit_mut_call_expr(&mut self, call_expr: &mut CallExpr) {
+        match &call_expr.callee {
+            Callee::Expr(box_expr) => {
+               if let Expr::Ident(ident) = box_expr.as_ref() {
+                   if ident.sym.as_str() == "useFragment"{
+                       self.requires_import = true;
+
+                       if call_expr.args.len() != 3 {
+                           return;
+                       }
+
+                       let args = &mut call_expr.args;
+                       let shape = args.remove(2);
+                       let expr = args.remove(1);
+
+                       let expr_type = match &expr.expr.as_ref() {
+                           Expr::Member(MemberExpr {
+                                                prop: MemberProp::Ident(ident),
+                                                ..
+                                            }) => Some(ident.sym.to_string()),
+                           _ => None,
+                       };
+
+                       let fragment_name = match (&self.function_name, expr_type) {
+                           (Some(function_name), Some(expr_type)) => {
+                               Some(format!("{}{}Fragment", function_name, expr_type))
+                           }
+                           _ => None,
+                       };
+
+                       let fragment_expr = ExprOrSpread {
+                           spread: None,
+                           expr: Box::new(Expr::Call(CallExpr {
+                               span: Default::default(),
+                               callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
+                                   span: Default::default(),
+                                   obj: Box::new(Expr::Ident(Ident {
+                                       span: Default::default(),
+                                       sym: Atom::from("e"),
+                                       optional: false,
+                                   })),
+                                   prop: MemberProp::Ident(Ident {
+                                       span: Default::default(),
+                                       sym: Atom::from("fragment"),
+                                       optional: false,
+                                   }),
+                               }))),
+                               args: vec![
+                                   ExprOrSpread {
+                                       spread: None,
+                                       expr: Box::new(Expr::Lit(Lit::Str(Str::from(
+                                           fragment_name.expect("no fragment name generated"),
+                                       )))),
+                                   },
+                                   expr,
+                                   shape,
+                               ],
+                               type_args: None,
+                           })),
+                       };
+
+                       args.insert(1, fragment_expr);
+                   }
+
+                   if ident.sym.as_str() == "useQueryFragment" {
+                       self.requires_import = true;
+
+                       let args = &mut call_expr.args;
+                       let shape = args.remove(1);
+
+                       let fragment_name = match &self.function_name {
+                           Some(function_name) => Some(format!("{}QueryFragment", function_name)),
+                           _ => None,
+                       };
+
+                       let fragment_expr = ExprOrSpread {
+                           spread: None,
+                           expr: Box::new(Expr::Call(CallExpr {
+                               span: Default::default(),
+                               callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
+                                   span: Default::default(),
+                                   obj: Box::new(Expr::Ident(Ident {
+                                       span: Default::default(),
+                                       sym: Atom::from("e"),
+                                       optional: false,
+                                   })),
+                                   prop: MemberProp::Ident(Ident {
+                                       span: Default::default(),
+                                       sym: Atom::from("queryFragment"),
+                                       optional: false,
+                                   }),
+                               }))),
+                               args: vec![
+                                   ExprOrSpread {
+                                       spread: None,
+                                       expr: Box::new(Expr::Lit(Lit::Str(Str::from(
+                                           fragment_name.expect("no query fragment name generated"),
+                                       )))),
+                                   },
+                                   shape,
+                               ],
+                               type_args: None,
+                           })),
+                       };
+
+                       args.insert(1, fragment_expr);
+                   }
+               } 
+            }
+            _ => {},
+        }
+    }
+
     fn visit_mut_fn_decl(&mut self, n: &mut FnDecl) {
         self.function_name = Some(n.ident.sym.to_string());
 
         n.visit_mut_children_with(self);
-    }
-
-    fn visit_mut_call_expr(&mut self, call_expr: &mut CallExpr) {
-        match &call_expr.callee {
-            Callee::Expr(box Expr::Ident(ident)) if ident.sym.as_str() == "useQueryFragment" => {
-                self.requires_import = true;
-
-                let args = &mut call_expr.args;
-                let shape = args.remove(1);
-
-                let fragment_name = match &self.function_name {
-                    Some(function_name) => Some(format!("{}QueryFragment", function_name)),
-                    _ => None,
-                };
-
-                let fragment_expr = ExprOrSpread {
-                    spread: None,
-                    expr: Box::new(Expr::Call(CallExpr {
-                        span: Default::default(),
-                        callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
-                            span: Default::default(),
-                            obj: Box::new(Expr::Ident(Ident {
-                                span: Default::default(),
-                                sym: Atom::from("e"),
-                                optional: false,
-                            })),
-                            prop: MemberProp::Ident(Ident {
-                                span: Default::default(),
-                                sym: Atom::from("queryFragment"),
-                                optional: false,
-                            }),
-                        }))),
-                        args: vec![
-                            ExprOrSpread {
-                                spread: None,
-                                expr: Box::new(Expr::Lit(Lit::Str(Str::from(
-                                    fragment_name.expect("no query fragment name generated"),
-                                )))),
-                            },
-                            shape,
-                        ],
-                        type_args: None,
-                    })),
-                };
-
-                args.insert(1, fragment_expr);
-            }
-            Callee::Expr(box Expr::Ident(ident)) if ident.sym.as_str() == "useFragment" => {
-                self.requires_import = true;
-
-                if call_expr.args.len() != 3 {
-                    return;
-                }
-
-                let args = &mut call_expr.args;
-                let shape = args.remove(2);
-                let expr = args.remove(1);
-
-                let expr_type = match &expr.expr {
-                    box Expr::Member(MemberExpr {
-                        prop: MemberProp::Ident(ident),
-                        ..
-                    }) => Some(ident.sym.to_string()),
-                    _ => None,
-                };
-
-                let fragment_name = match (&self.function_name, expr_type) {
-                    (Some(function_name), Some(expr_type)) => {
-                        Some(format!("{}{}Fragment", function_name, expr_type))
-                    }
-                    _ => None,
-                };
-
-                let fragment_expr = ExprOrSpread {
-                    spread: None,
-                    expr: Box::new(Expr::Call(CallExpr {
-                        span: Default::default(),
-                        callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
-                            span: Default::default(),
-                            obj: Box::new(Expr::Ident(Ident {
-                                span: Default::default(),
-                                sym: Atom::from("e"),
-                                optional: false,
-                            })),
-                            prop: MemberProp::Ident(Ident {
-                                span: Default::default(),
-                                sym: Atom::from("fragment"),
-                                optional: false,
-                            }),
-                        }))),
-                        args: vec![
-                            ExprOrSpread {
-                                spread: None,
-                                expr: Box::new(Expr::Lit(Lit::Str(Str::from(
-                                    fragment_name.expect("no fragment name generated"),
-                                )))),
-                            },
-                            expr,
-                            shape,
-                        ],
-                        type_args: None,
-                    })),
-                };
-
-                args.insert(1, fragment_expr);
-            }
-            _ => {}
-        }
     }
 }
 
