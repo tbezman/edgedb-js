@@ -20,6 +20,10 @@ export type ParamsExtends = {
   [key: string]: ParamType | $expr_OptionalParam;
 };
 
+type Param = ParamType | $expr_OptionalParam;
+
+type ParamsRecord = Record<string, Param>;
+
 export type $expr_OptionalParam<Type extends ParamType = ParamType> = {
   __kind__: ExpressionKind.OptionalParam;
   __type__: Type;
@@ -36,7 +40,7 @@ export function optional<Type extends ParamType>(
 
 export type QueryableWithParamsExpression<
   Set extends TypeSet = TypeSet,
-  Params extends ParamsExtends = {}
+  Params extends ParamsRecord = Record<string, never>
 > = Expression<Set, false> & {
   run(
     cxn: Executor,
@@ -46,7 +50,7 @@ export type QueryableWithParamsExpression<
 };
 
 export type $expr_WithParams<
-  Params extends ParamsExtends = {},
+  Params extends ParamsRecord = Record<string, never>,
   Expr extends TypeSet = TypeSet
 > = QueryableWithParamsExpression<
   {
@@ -59,7 +63,7 @@ export type $expr_WithParams<
   Params
 >;
 
-export type paramsToParamArgs<Params extends ParamsExtends> = {
+export type paramsToParamArgs<Params extends ParamsRecord> = {
   [key in keyof Params as Params[key] extends ParamType
     ? key
     : never]: Params[key] extends ParamType
@@ -101,7 +105,7 @@ export function param(
   }) as any;
 }
 
-type paramsToParamExprs<Params extends ParamsExtends> = {
+type paramsToParamExprs<Params extends ParamsRecord> = {
   [key in keyof Params]: Params[key] extends $expr_OptionalParam
     ? $expr_Param<key, Params[key]["__type__"], true>
     : Params[key] extends ParamType
@@ -110,7 +114,7 @@ type paramsToParamExprs<Params extends ParamsExtends> = {
 };
 
 export function params<
-  Params extends ParamsExtends = {},
+  Params extends ParamsRecord = Record<string, never>,
   Expr extends Expression = Expression
 >(
   paramsDef: Params,

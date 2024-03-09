@@ -1,8 +1,8 @@
-import type { ParseResult } from "../baseConn";
 import { ArrayCodec } from "../codecs/array";
 import { AT_LEAST_ONE, AT_MOST_ONE, MANY, ONE } from "../codecs/consts";
 import { EnumCodec } from "../codecs/enum";
-import { ICodec, ScalarCodec } from "../codecs/ifaces";
+import type { ICodec } from "../codecs/ifaces";
+import { ScalarCodec } from "../codecs/ifaces";
 import { NamedTupleCodec } from "../codecs/namedtuple";
 import { ObjectCodec } from "../codecs/object";
 import { MultiRangeCodec, RangeCodec } from "../codecs/range";
@@ -25,36 +25,21 @@ export async function analyzeQuery(
   client: Client,
   query: string
 ): Promise<QueryType> {
-  let parseResult: ParseResult;
-  const pool: BaseClientPool = (client as any).pool;
+  const [cardinality, inCodec, outCodec] = await parseQuery(client, query);
 
-  const holder = await pool.acquireHolder(Options.defaults());
-  try {
-    const cxn = await holder._getConnection();
-    parseResult = await cxn._parse(
-      query,
-      OutputFormat.BINARY,
-      Cardinality.MANY,
-      Session.defaults()
-    );
-  } finally {
-    await holder.release();
-  }
-
-  const cardinality = parseResult[0];
-  const inCodec = parseResult[1];
-  const outCodec = parseResult[2];
   const imports = new Set<string>();
   const args = walkCodec(inCodec, {
     indent: "",
     optionalNulls: true,
+    readonly: true,
     imports,
   });
 
-  const result = generateSetType(
+  const result = applyCardinalityToTsType(
     walkCodec(outCodec, {
       indent: "",
       optionalNulls: false,
+      readonly: false,
       imports,
     }),
     cardinality
@@ -69,7 +54,27 @@ export async function analyzeQuery(
   };
 }
 
-function generateSetType(type: string, cardinality: Cardinality): string {
+export async function parseQuery(client: Client, query: string) {
+  const pool: BaseClientPool = (client as any).pool;
+
+  const holder = await pool.acquireHolder(Options.defaults());
+  try {
+    const cxn = await holder._getConnection();
+    return await cxn._parse(
+      query,
+      OutputFormat.BINARY,
+      Cardinality.MANY,
+      Session.defaults()
+    );
+  } finally {
+    await holder.release();
+  }
+}
+
+export function applyCardinalityToTsType(
+  type: string,
+  cardinality: Cardinality
+): string {
   switch (cardinality) {
     case Cardinality.MANY:
       return `${type}[]`;
@@ -85,9 +90,15 @@ function generateSetType(type: string, cardinality: Cardinality): string {
 
 // type AtLeastOne<T> = [T, ...T[]];
 
+export { walkCodec as walkCodecToTsType };
 function walkCodec(
   codec: ICodec,
-  ctx: { indent: string; optionalNulls: boolean; imports: Set<string> }
+  ctx: {
+    indent: string;
+    optionalNulls: boolean;
+    readonly: boolean;
+    imports: Set<string>;
+  }
 ): string {
   if (codec instanceof NullCodec) {
     return "null";
@@ -107,7 +118,7 @@ function walkCodec(
         ? codec.getFields()
         : codec.getNames().map((name) => ({ name, cardinality: ONE }));
     const subCodecs = codec.getSubcodecs();
-    return `{\n${fields
+    const objectShape = `{\n${fields
       .map((field, i) => {
         let subCodec = subCodecs[i];
         if (subCodec instanceof SetCodec) {
@@ -120,18 +131,22 @@ function walkCodec(
         }
         return `${ctx.indent}  ${JSON.stringify(field.name)}${
           ctx.optionalNulls && field.cardinality === AT_MOST_ONE ? "?" : ""
-        }: ${generateSetType(
+        }: ${applyCardinalityToTsType(
           walkCodec(subCodec, { ...ctx, indent: ctx.indent + "  " }),
           field.cardinality
         )};`;
       })
       .join("\n")}\n${ctx.indent}}`;
+    return ctx.readonly ? `Readonly<${objectShape}>` : objectShape;
   }
   if (codec instanceof ArrayCodec) {
-    return `${walkCodec(codec.getSubcodecs()[0], ctx)}[]`;
+    return `${ctx.readonly ? "readonly " : ""}${walkCodec(
+      codec.getSubcodecs()[0],
+      ctx
+    )}[]`;
   }
   if (codec instanceof TupleCodec) {
-    return `[${codec
+    return `${ctx.readonly ? "readonly " : ""}[${codec
       .getSubcodecs()
       .map((subCodec) => walkCodec(subCodec, ctx))
       .join(", ")}]`;

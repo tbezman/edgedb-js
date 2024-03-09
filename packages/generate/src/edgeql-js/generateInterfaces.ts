@@ -1,4 +1,4 @@
-import { CodeBuffer, js, t } from "../builders";
+import { CodeBuffer, t } from "../builders";
 import type { GeneratorParams } from "../genutil";
 import { $ } from "../genutil";
 import { makePlainIdent, quote, splitName, toTSScalarType } from "../genutil";
@@ -32,8 +32,7 @@ export const generateInterfaces = (params: GenerateInterfacesParams) => {
       const modName = modParts[modParts.length - 1];
       const parentModName = modParts.slice(0, -1).join("::");
       const parent = parentModName ? getModule(parentModName) : null;
-      const internalName =
-        modName === "default" && !parentModName ? "" : makePlainIdent(modName);
+      const internalName = makePlainIdent(modName);
 
       module = {
         name: modName,
@@ -73,9 +72,8 @@ export const generateInterfaces = (params: GenerateInterfacesParams) => {
     (typeName: string, withModule: boolean = false): string => {
       const { tMod, tName, module } = getPlainTypeModule(typeName);
       return (
-        ((mod !== tMod || withModule) && tMod !== "default"
-          ? `${module.fullInternalName}.`
-          : "") + `${makePlainIdent(tName)}`
+        (mod !== tMod || withModule ? `${module.fullInternalName}.` : "") +
+        `${makePlainIdent(tName)}`
       );
     };
 
@@ -100,7 +98,7 @@ export const generateInterfaces = (params: GenerateInterfacesParams) => {
     const isUnionType = Boolean(type.union_of?.length);
     const isIntersectionType = Boolean(type.intersection_of?.length);
 
-    if (isIntersectionType) {
+    if (isIntersectionType || isUnionType) {
       continue;
     }
 
@@ -130,34 +128,20 @@ export const generateInterfaces = (params: GenerateInterfacesParams) => {
       } else if (isLink) {
         return getTypeName(targetType.name);
       } else {
-        const baseType =
-          targetType.kind === "scalar"
-            ? (targetType.bases
-                .map(({ id }) => types.get(id))
-                .filter(
-                  (base) => !base.is_abstract
-                )[0] as $.introspect.ScalarType)
-            : null;
-        return toTSScalarType(
-          baseType ?? (targetType as $.introspect.PrimitiveType),
-          types,
-          {
-            getEnumRef: (enumType) => getTypeName(enumType.name),
-            edgedbDatatypePrefix: "",
-          }
-        ).join("");
+        return toTSScalarType(targetType as $.introspect.PrimitiveType, types, {
+          getEnumRef: (enumType) => getTypeName(enumType.name),
+          edgedbDatatypePrefix: "",
+        }).join("");
       }
     };
 
     const { module: plainTypeModule } = getPlainTypeModule(type.name);
     const pointers = type.pointers.filter((ptr) => ptr.name !== "__type__");
 
-    if (!isUnionType) {
-      plainTypeModule.types.set(name, getTypeName(type.name, true));
-    }
+    plainTypeModule.types.set(name, getTypeName(type.name, true));
 
     plainTypeModule.buf.writeln([
-      t`${isUnionType ? "" : "export "}interface ${getTypeName(type.name)}${
+      t`export interface ${getTypeName(type.name)}${
         type.bases.length
           ? ` extends ${type.bases
               .map(({ id }) => {
@@ -190,12 +174,8 @@ export const generateInterfaces = (params: GenerateInterfacesParams) => {
   const plainTypesExportBuf = new CodeBuffer();
 
   const writeModuleExports = (module: ModuleData) => {
-    const wrapInNamespace = !(module.isRoot && module.name === "default");
-    if (wrapInNamespace) {
-      plainTypesCode.writeln([t`export namespace ${module.internalName} {`]);
-      plainTypesCode.writeln([js`const ${module.internalName} = {`]);
-      plainTypesCode.increaseIndent();
-    }
+    plainTypesCode.writeln([t`export namespace ${module.internalName} {`]);
+    plainTypesCode.increaseIndent();
 
     plainTypesCode.writeBuf(module.buf);
 
@@ -212,11 +192,29 @@ export const generateInterfaces = (params: GenerateInterfacesParams) => {
     plainTypesExportBuf.decreaseIndent();
     plainTypesExportBuf.writeln([t`};`]);
 
-    if (wrapInNamespace) {
-      plainTypesCode.decreaseIndent();
-      plainTypesCode.writeln([t`}`]);
-      plainTypesCode.writeln([js`}`]);
-      plainTypesCode.addExport(module.internalName, { modes: ["js"] });
+    plainTypesCode.decreaseIndent();
+    plainTypesCode.writeln([t`}`]);
+    plainTypesCode.addExport(module.internalName, { modes: ["js"] });
+
+    if (module.isRoot && module.name === "default") {
+      const typeRefs = [
+        ...module.types.values(),
+        ...[...module.nestedModules.values()].map(
+          (nestedMod) => nestedMod.fullInternalName
+        ),
+      ];
+      for (const typeRef of typeRefs) {
+        plainTypesCode.writeln([
+          `import ${typeRef.slice(
+            module.internalName.length + 1
+          )} = ${typeRef};`,
+        ]);
+      }
+      plainTypesCode.writeln([
+        `export {${typeRefs
+          .map((typeRef) => typeRef.slice(module.internalName.length + 1))
+          .join(", ")}};`,
+      ]);
     }
   };
 

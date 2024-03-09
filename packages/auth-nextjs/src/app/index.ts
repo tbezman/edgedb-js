@@ -1,4 +1,9 @@
-import { type TokenData } from "@edgedb/auth-core";
+import {
+  type TokenData,
+  ConfigurationError,
+  PKCEError,
+  InvalidDataError,
+} from "@edgedb/auth-core";
 import type { Client } from "edgedb";
 import { cookies } from "next/headers";
 import { cache } from "react";
@@ -12,6 +17,7 @@ import {
   _extractParams,
 } from "../shared";
 
+export * from "@edgedb/auth-core/dist/errors";
 export {
   NextAuthSession,
   type NextAuthOptions,
@@ -25,7 +31,7 @@ export class NextAppAuth extends NextAuth {
     () =>
       new NextAuthSession(
         this.client,
-        cookies().get(this.options.authCookieName)?.value.split(";")[0]
+        cookies().get(this.options.authCookieName)?.value.split(";")[0] ?? null
       )
   );
 
@@ -89,7 +95,9 @@ export class NextAppAuth extends NextAuth {
         data: FormData | { email: string }
       ) => {
         if (!this.options.passwordResetPath) {
-          throw new Error(`'passwordResetPath' option not configured`);
+          throw new ConfigurationError(
+            `'passwordResetPath' option not configured`
+          );
         }
         const [email] = _extractParams(data, ["email"], "email missing");
         const { verifier } = await (
@@ -115,7 +123,7 @@ export class NextAppAuth extends NextAuth {
           this.options.pkceVerifierCookieName
         )?.value;
         if (!verifier) {
-          throw new Error("no pkce verifier cookie found");
+          throw new PKCEError("no pkce verifier cookie found");
         }
         const [resetToken, password] = _extractParams(
           data,
@@ -135,14 +143,40 @@ export class NextAppAuth extends NextAuth {
         return tokenData;
       },
       emailPasswordResendVerificationEmail: async (
-        data: FormData | { verification_token: string }
+        data: FormData | { verification_token: string } | { email: string }
       ) => {
-        const [verificationToken] = _extractParams(
-          data,
-          ["verification_token"],
-          "verification_token missing"
-        );
-        await (await this.core).resendVerificationEmail(verificationToken);
+        let email;
+        let verificationToken;
+        try {
+          [verificationToken] = _extractParams(
+            data,
+            ["verification_token"],
+            "verification_token missing"
+          );
+        } catch (tokenError) {
+          try {
+            [email] = _extractParams(data, ["email"], "email missing");
+          } catch (emailError) {
+            const bothParamsMissing = [tokenError, emailError]
+              .map((err) => (err as Error).message)
+              .join(" and ");
+
+            throw new InvalidDataError(
+              `${bothParamsMissing}. Either one is required.`
+            );
+          }
+        }
+
+        if (verificationToken) {
+          await (await this.core).resendVerificationEmail(verificationToken);
+        } else if (email) {
+          await (
+            await this.core
+          ).resendVerificationEmailForEmail(
+            email,
+            `${this._authRoute}/emailpassword/verify`
+          );
+        }
       },
     };
   }

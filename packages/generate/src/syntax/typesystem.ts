@@ -31,8 +31,8 @@ export type BaseTypeTuple = typeutil.tupleOf<BaseType>;
 
 export interface ScalarType<
   Name extends string = string,
-  TsType extends any = any,
-  TsArgType extends any = TsType,
+  TsType = any,
+  TsArgType = TsType,
   TsConstType extends TsType = TsType
 > extends BaseType {
   __kind__: TypeKind.scalar;
@@ -44,16 +44,13 @@ export interface ScalarType<
 
 export type scalarTypeWithConstructor<
   S extends ScalarType,
-  ExtraTsTypes extends any = never
+  ExtraTsTypes = never
 > = S & {
   // tslint:disable-next-line
   <T extends S["__tstype__"] | ExtraTsTypes>(val: T): $expr_Literal<
-    ScalarType<
-      S["__name__"],
-      S["__tstype__"],
-      S["__tsargtype__"],
-      T extends S["__tstype__"] ? T : S["__tstype__"]
-    >
+    Omit<S, "__tsconsttype__"> & {
+      __tsconsttype__: T extends S["__tstype__"] ? T : S["__tstype__"];
+    }
   >;
 };
 
@@ -524,7 +521,11 @@ export interface ArrayType<
 type ArrayTypeToTsType<
   Type extends ArrayType,
   isParam extends boolean = false
-> = BaseTypeToTsType<Type["__element__"], isParam>[];
+> = BaseTypeToTsType<Type["__element__"], isParam> extends infer TsType
+  ? isParam extends true
+    ? readonly TsType[]
+    : TsType[]
+  : never;
 
 /////////////////////////
 /// TUPLE TYPE
@@ -706,7 +707,7 @@ export type BaseTypeToTsType<
   : Type extends EnumType
   ? Type["__tstype__"]
   : Type extends ArrayType<any>
-  ? typeutil.flatten<ArrayTypeToTsType<Type, isParam>>
+  ? ArrayTypeToTsType<Type, isParam>
   : Type extends RangeType
   ? Range<Type["__element__"]["__tsconsttype__"]>
   : Type extends MultiRangeType

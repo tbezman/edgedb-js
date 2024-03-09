@@ -4,17 +4,16 @@ import path from "node:path";
 
 import debug from "debug";
 import * as p from "@clack/prompts";
-
 import { updatePackage } from "write-package";
 
-import * as utils from "../../utils.js";
+import { getPackageManager, copyTemplateFiles } from "../../utils.js";
 import type { Framework, BaseRecipe, BaseOptions } from "../types.js";
 
 const logger = debug("@edgedb/create:recipe:base");
 
 const recipe: BaseRecipe = {
   async getOptions() {
-    const packageManager = utils.getPackageManager();
+    const packageManager = getPackageManager();
     logger({ packageManager });
 
     const opts = await p.group(
@@ -30,6 +29,7 @@ const recipe: BaseRecipe = {
               { value: "next", label: "Next.js" },
               { value: "remix", label: "Remix" },
               { value: "express", label: "Express" },
+              { value: "sveltekit", label: "SvelteKit" },
               { value: "node-http", label: "Node HTTP Server" },
               { value: "none", label: "None" },
             ],
@@ -85,18 +85,7 @@ const recipe: BaseRecipe = {
     const dirname = path.dirname(new URL(import.meta.url).pathname);
 
     logger("Copying files");
-    await fs.copyFile(
-      path.resolve(dirname, "./_eslint.config.js"),
-      path.resolve(projectDir, "eslint.config.js")
-    );
-    await fs.copyFile(
-      path.resolve(dirname, "./_package.json"),
-      path.resolve(projectDir, "package.json")
-    );
-    await fs.copyFile(
-      path.resolve(dirname, "./_tsconfig.json"),
-      path.resolve(projectDir, "tsconfig.json")
-    );
+    await copyTemplateFiles(path.resolve(dirname, "./template"), projectDir);
 
     logger("Writing package.json");
     await updatePackage(projectDir, { name: projectName });
