@@ -1,6 +1,6 @@
 {
   "name": "@edgedb/create",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "type": "module",
   "description": "Create a new EdgeDB-based project",
   "homepage": "https://edgedb.com/docs",
@@ -23,7 +23,7 @@
     "@types/debug": "^4.1.12",
     "@types/node": "^20.10.4",
     "tsx": "^4.6.2",
-    "typescript": "^5.2.2"
+    "typescript": "^5.4.5"
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0",
@@ -33,6 +33,7 @@
     "write-package": "^7.0.0"
   },
   "scripts": {
+    "typecheck": "tsc --project tsconfig.json --noEmit",
     "create": "tsx src/cli.ts",
     "build": "./build.sh",
     "test": "tsc --noEmit"

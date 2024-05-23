@@ -176,24 +176,25 @@ export class Auth {
   async signupWithMagicLink(
     email: string,
     callbackUrl: string,
-    redirectOnFailure: string,
-    challenge: string
-  ): Promise<void> {
+    redirectOnFailure: string
+  ): Promise<{ verifier: string }> {
+    const { challenge, verifier } = await pkce.createVerifierChallengePair();
     await this._post("magic-link/register", {
       provider: magicLinkProviderName,
-      challenge,
       email,
+      challenge,
       callback_url: callbackUrl,
       redirect_on_failure: redirectOnFailure,
     });
+    return { verifier };
   }
 
   async signinWithMagicLink(
     email: string,
     callbackUrl: string,
-    redirectOnFailure: string,
-    challenge: string
-  ): Promise<void> {
+    redirectOnFailure: string
+  ): Promise<{ verifier: string }> {
+    const { challenge, verifier } = await pkce.createVerifierChallengePair();
     await this._post("magic-link/email", {
       provider: magicLinkProviderName,
       challenge,
@@ -201,6 +202,8 @@ export class Auth {
       callback_url: callbackUrl,
       redirect_on_failure: redirectOnFailure,
     });
+
+    return { verifier };
   }
 
   async resendVerificationEmail(verificationToken: string) {
@@ -211,11 +214,14 @@ export class Auth {
   }
 
   async resendVerificationEmailForEmail(email: string, verifyUrl: string) {
+    const { verifier, challenge } = await pkce.createVerifierChallengePair();
     await this._post("resend-verification-email", {
       provider: emailPasswordProviderName,
       email,
       verify_url: verifyUrl,
+      challenge,
     });
+    return { verifier };
   }
 
   async sendPasswordResetEmail(email: string, resetUrl: string) {
@@ -231,18 +237,27 @@ export class Auth {
     };
   }
 
-  static checkPasswordResetTokenValid(resetToken: string) {
+  static getTokenExpiration(token: string) {
     try {
-      const payload = jwtDecode(resetToken);
+      const payload = jwtDecode(token);
       if (
         typeof payload !== "object" ||
         payload == null ||
         !("exp" in payload) ||
         typeof payload.exp !== "number"
       ) {
-        return false;
+        return null;
       }
-      return payload.exp < Date.now();
+      return new Date(payload.exp * 1000);
+    } catch {
+      return null;
+    }
+  }
+
+  static checkPasswordResetTokenValid(resetToken: string) {
+    try {
+      const expirationDate = this.getTokenExpiration(resetToken);
+      return expirationDate && expirationDate.getTime() > Date.now();
     } catch {
       return false;
     }

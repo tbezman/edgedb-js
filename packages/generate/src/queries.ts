@@ -1,8 +1,7 @@
-import { $, adapter, type Client } from "edgedb";
-import { Cardinality } from "edgedb/dist/ifaces";
+import { $, adapter, type Client, type Executor } from "edgedb";
 import { type CommandOptions } from "./commandutil";
 import { headerComment } from "./genutil";
-import { type Target, camelify } from "./genutil";
+import type { Target } from "./genutil";
 
 // generate per-file queries
 // generate queries in a single file
@@ -72,10 +71,9 @@ currently supported.`);
               filesByExtension[f.extension] = f;
             } else {
               filesByExtension[f.extension].contents += `\n\n` + f.contents;
-              filesByExtension[f.extension].imports = {
-                ...filesByExtension[f.extension].imports,
-                ...f.imports,
-              };
+              filesByExtension[f.extension].imports = filesByExtension[
+                f.extension
+              ].imports.merge(f.imports);
             }
           }
         } catch (err) {
@@ -148,9 +146,13 @@ currently supported.`);
   //   generate output file
 }
 
-export function stringifyImports(imports: { [k: string]: boolean }) {
-  if (Object.keys(imports).length === 0) return "";
-  return `import type {${Object.keys(imports).join(", ")}} from "edgedb";`;
+export function stringifyImports(imports: ImportMap) {
+  return [...imports]
+    .map(
+      ([module, specifiers]) =>
+        `import type {${[...specifiers].join(", ")}} from "${module}";`
+    )
+    .join("\n");
 }
 
 async function getMatches(root: string, schemaDir: string) {
@@ -177,11 +179,12 @@ type QueryType = Awaited<ReturnType<(typeof $)["analyzeQuery"]>>;
 export function generateFiles(params: {
   target: Target;
   path: string;
-  types: QueryType;
+  types: Omit<QueryType, "imports" | "importMap"> &
+    Partial<Pick<QueryType, "imports" | "importMap">>;
 }): {
   path: string;
   contents: string;
-  imports: { [k: string]: boolean };
+  imports: ImportMap;
   extension: string;
 }[] {
   const queryFileName = adapter.path.basename(params.path);
@@ -192,13 +195,18 @@ export function generateFiles(params: {
     `${baseFileName}.query`
   );
 
-  const method =
-    params.types.cardinality === Cardinality.ONE
-      ? "queryRequiredSingle"
-      : params.types.cardinality === Cardinality.AT_MOST_ONE
-      ? "querySingle"
-      : "query";
-  const functionName = camelify(baseFileName);
+  const method = cardinalityToExecutorMethod[params.types.cardinality];
+  if (!method) {
+    const validCardinalities = Object.values($.Cardinality);
+    throw new Error(
+      `Invalid cardinality: ${
+        params.types.cardinality
+      }. Expected one of ${validCardinalities.join(", ")}.`
+    );
+  }
+  const functionName = baseFileName
+    .replace(/-[A-Za-z]/g, (m) => m[1].toUpperCase())
+    .replace(/^[^A-Za-z_]|\W/g, "_");
   const interfaceName =
     functionName.charAt(0).toUpperCase() + functionName.slice(1);
   const argsInterfaceName = `${interfaceName}Args`;
@@ -209,13 +217,17 @@ ${hasArgs ? `export type ${argsInterfaceName} = ${params.types.args};\n` : ""}
 export type ${returnsInterfaceName} = ${params.types.result};\
 `;
   const functionBody = `\
-${params.types.query.trim().replace(/`/g, "\\`")}\`${hasArgs ? `, args` : ""});
+${params.types.query.trim().replace(/\\/g, "\\\\").replace(/`/g, "\\`")}\`${
+    hasArgs ? `, args` : ""
+  });
 `;
-  const imports: any = {};
-  for (const i of params.types.imports) {
-    imports[i] = true;
-  }
-  const tsImports = { Executor: true, ...imports };
+
+  const tsImports =
+    params.types.importMap ??
+    new ImportMap(
+      params.types.imports ? [["edgedb", params.types.imports]] : []
+    );
+  tsImports.add("edgedb", "Executor");
 
   const tsImpl = `${queryDefs}
 
@@ -249,7 +261,7 @@ export function ${functionName}(client: Executor${
         {
           path: `${outputBaseFileName}.js`,
           contents: `${jsImpl}\n\nmodule.exports.${functionName} = ${functionName};`,
-          imports: {},
+          imports: new ImportMap(),
           extension: ".js",
         },
         {
@@ -274,7 +286,7 @@ export function ${functionName}(client: Executor${
         {
           path: `${outputBaseFileName}.mjs`,
           contents: `export ${jsImpl}`,
-          imports: {},
+          imports: new ImportMap(),
           extension: ".mjs",
         },
         {
@@ -302,5 +314,33 @@ export function ${functionName}(client: Executor${
           extension: ".ts",
         },
       ];
+  }
+}
+
+export const cardinalityToExecutorMethod = {
+  One: "queryRequiredSingle",
+  AtMostOne: "querySingle",
+  Many: "query",
+  AtLeastOne: "query",
+  Empty: "query",
+} satisfies Record<`${$.Cardinality}`, keyof Executor>;
+
+export class ImportMap extends Map<string, Set<string>> {
+  add(module: string, specifier: string) {
+    if (!this.has(module)) {
+      this.set(module, new Set());
+    }
+    this.get(module)!.add(specifier);
+    return this;
+  }
+
+  merge(map: ImportMap) {
+    const out = new ImportMap();
+    for (const [mod, specifiers] of [...this, ...map]) {
+      for (const specifier of specifiers) {
+        out.add(mod, specifier);
+      }
+    }
+    return out;
   }
 }

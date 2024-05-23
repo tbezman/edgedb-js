@@ -17,6 +17,9 @@ import {
   InvalidDataError,
   OAuthProviderFailureError,
   EdgeDBAuthError,
+  MagicLinkFailureError,
+  type AuthenticationResponseJSON,
+  type RegistrationResponseJSON,
 } from "@edgedb/auth-core";
 import {
   ClientAuth,
@@ -25,14 +28,17 @@ import {
   type AuthOptions,
 } from "./client.js";
 
-export * from "@edgedb/auth-core/dist/errors.js";
+export * from "@edgedb/auth-core/errors";
 export type { TokenData, AuthOptions, Client };
 
 export type BuiltinProviderNames =
   | BuiltinOAuthProviderNames
   | typeof emailPasswordProviderName;
 
-type ParamsOrError<Result extends object, ErrorDetails extends object = {}> =
+type ParamsOrError<
+  Result extends object,
+  ErrorDetails extends object = object
+> =
   | ({ error: null } & { [Key in keyof ErrorDetails]?: undefined } & Result)
   | ({ error: Error } & ErrorDetails & { [Key in keyof Result]?: undefined });
 
@@ -61,6 +67,12 @@ export interface AuthRouteHandlers {
       { verificationToken?: string }
     >
   ) => Promise<never>;
+  onMagicLinkCallback(
+    params: ParamsOrError<{
+      tokenData: TokenData;
+      isSignUp: boolean;
+    }>
+  ): Promise<Response>;
   onSignout?: () => Promise<never>;
 }
 
@@ -94,11 +106,68 @@ export default function serverAuth(client: Client, options: AuthOptions) {
   };
 }
 
+const BASE_COOKIE_CONFIG: {
+  httpOnly: boolean;
+  sameSite: boolean | "lax" | "strict" | "none" | undefined;
+  path: string;
+} = {
+  httpOnly: true,
+  sameSite: "lax",
+  path: "/",
+};
+
+function setVerifierCookie(
+  cookies: Cookies,
+  config: AuthConfig,
+  value: string
+): void {
+  const expires = new Date(Date.now() + 1000 * 60 * 24 * 7); // in 7 days
+  cookies.set(config.pkceVerifierCookieName, value, {
+    ...BASE_COOKIE_CONFIG,
+    expires,
+    secure: config.baseUrl.startsWith("https"),
+  });
+}
+
+function setAuthCookie(
+  cookies: Cookies,
+  config: AuthConfig,
+  value: string
+): void {
+  cookies.set(config.authCookieName, value, {
+    ...BASE_COOKIE_CONFIG,
+    expires: Auth.getTokenExpiration(value) || undefined,
+    secure: config.baseUrl.startsWith("https"),
+  });
+}
+
+function deleteCookie(cookies: Cookies, name: string) {
+  cookies.set(name, "", {
+    path: "/",
+  });
+}
+
 export class ServerRequestAuth extends ClientAuth {
   private readonly client: Client;
   private readonly core: Promise<Auth>;
   private readonly cookies: Cookies;
   private _session: AuthSession | undefined;
+
+  private setVerifierCookie(verifier: string) {
+    setVerifierCookie(this.cookies, this.config, verifier);
+  }
+
+  private setAuthCookie(authToken: string) {
+    setAuthCookie(this.cookies, this.config, authToken);
+  }
+
+  private deleteVerifierCookie() {
+    deleteCookie(this.cookies, this.config.pkceVerifierCookieName);
+  }
+
+  private deleteAuthCookie() {
+    deleteCookie(this.cookies, this.config.authCookieName);
+  }
 
   get session() {
     if (!this._session) {
@@ -150,20 +219,12 @@ export class ServerRequestAuth extends ClientAuth {
       `${this.config.authRoute}/emailpassword/verify`
     );
 
-    this.cookies.set(this.config.pkceVerifierCookieName, result.verifier, {
-      httpOnly: true,
-      sameSite: "strict",
-      path: "/",
-    });
+    this.setVerifierCookie(result.verifier);
 
     if (result.status === "complete") {
       const tokenData = result.tokenData;
 
-      this.cookies.set(this.config.authCookieName, tokenData.auth_token, {
-        httpOnly: true,
-        sameSite: "strict",
-        path: "/",
-      });
+      this.setAuthCookie(tokenData.auth_token);
 
       return { tokenData };
     }
@@ -172,15 +233,39 @@ export class ServerRequestAuth extends ClientAuth {
   }
 
   async emailPasswordResendVerificationEmail(
-    data: { verification_token: string } | FormData
+    data: { verification_token: string } | { email: string } | FormData
   ): Promise<void> {
-    const [verificationToken] = extractParams(
-      data,
-      ["verification_token"],
-      "verification_token missing"
-    );
+    const verificationToken =
+      data instanceof FormData
+        ? data.get("verification_token")
+        : "verification_token" in data
+        ? data.verification_token
+        : null;
+    const email =
+      data instanceof FormData
+        ? data.get("email")
+        : "email" in data
+        ? data.email
+        : null;
 
-    await (await this.core).resendVerificationEmail(verificationToken);
+    if (verificationToken) {
+      return await (
+        await this.core
+      ).resendVerificationEmail(verificationToken.toString());
+    } else if (email) {
+      const { verifier } = await (
+        await this.core
+      ).resendVerificationEmailForEmail(
+        email.toString(),
+        `${this.config.authRoute}/emailpassword/verify`
+      );
+
+      this.setVerifierCookie(verifier);
+    } else {
+      throw new InvalidDataError(
+        "expected 'verification_token' or 'email' in data"
+      );
+    }
   }
 
   async emailPasswordSignIn(
@@ -196,11 +281,7 @@ export class ServerRequestAuth extends ClientAuth {
       await this.core
     ).signinWithEmailPassword(email, password);
 
-    this.cookies.set(this.config.authCookieName, tokenData.auth_token, {
-      httpOnly: true,
-      sameSite: "strict",
-      path: "/",
-    });
+    this.setAuthCookie(tokenData.auth_token);
 
     return { tokenData };
   }
@@ -221,11 +302,7 @@ export class ServerRequestAuth extends ClientAuth {
       new URL(this.config.passwordResetPath, this.config.baseUrl).toString()
     );
 
-    this.cookies.set(this.config.pkceVerifierCookieName, verifier, {
-      httpOnly: true,
-      sameSite: "strict",
-      path: "/",
-    });
+    this.setVerifierCookie(verifier);
   }
 
   async emailPasswordResetPassword(
@@ -247,20 +324,93 @@ export class ServerRequestAuth extends ClientAuth {
       await this.core
     ).resetPasswordWithResetToken(resetToken, verifier, password);
 
-    this.cookies.set(this.config.authCookieName, tokenData.auth_token, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-    });
+    this.setAuthCookie(tokenData.auth_token);
 
-    this.cookies.delete(this.config.pkceVerifierCookieName, {
-      path: "/",
-    });
+    this.deleteVerifierCookie();
+
     return { tokenData };
   }
 
+  async magicLinkSignUp(data: { email: string } | FormData): Promise<void> {
+    if (!this.config.magicLinkFailurePath) {
+      throw new ConfigurationError(
+        `'magicLinkFailurePath' option not configured`
+      );
+    }
+    const [email] = extractParams(data, ["email"], "email missing");
+
+    const { verifier } = await (
+      await this.core
+    ).signupWithMagicLink(
+      email,
+      `${this.config.authRoute}/magiclink/callback?isSignUp=true`,
+      new URL(this.config.magicLinkFailurePath, this.config.baseUrl).toString()
+    );
+
+    this.setVerifierCookie(verifier);
+  }
+
+  async magicLinkSend(data: { email: string } | FormData): Promise<void> {
+    if (!this.config.magicLinkFailurePath) {
+      throw new ConfigurationError(
+        `'magicLinkFailurePath' option not configured`
+      );
+    }
+    const [email] = extractParams(data, ["email"], "email missing");
+
+    const { verifier } = await (
+      await this.core
+    ).signinWithMagicLink(
+      email,
+      `${this.config.authRoute}/magiclink/callback?isSignUp=true`,
+      new URL(this.config.magicLinkFailurePath, this.config.baseUrl).toString()
+    );
+
+    this.setVerifierCookie(verifier);
+  }
+
+  async webAuthnSignIn(data: {
+    email: string;
+    assertion: AuthenticationResponseJSON;
+  }): Promise<{ tokenData: TokenData }> {
+    const { email, assertion } = data;
+
+    const tokenData = await (
+      await this.core
+    ).signinWithWebAuthn(email, assertion);
+
+    this.setAuthCookie(tokenData.auth_token);
+
+    return { tokenData };
+  }
+
+  async webAuthnSignUp(data: {
+    email: string;
+    credentials: RegistrationResponseJSON;
+    verify_url: string;
+    user_handle: string;
+  }): Promise<{ tokenData: TokenData | null }> {
+    const { email, credentials, verify_url, user_handle } = data;
+
+    const result = await (
+      await this.core
+    ).signupWithWebAuthn(email, credentials, verify_url, user_handle);
+
+    this.setVerifierCookie(result.verifier);
+
+    if (result.status === "complete") {
+      const tokenData = result.tokenData;
+
+      this.setAuthCookie(tokenData.auth_token);
+
+      return { tokenData };
+    }
+
+    return { tokenData: null };
+  }
+
   async signout(): Promise<void> {
-    this.cookies.delete(this.config.authCookieName, { path: "/" });
+    this.deleteAuthCookie();
   }
 }
 
@@ -324,6 +474,7 @@ async function handleAuthRoutes(
     onOAuthCallback,
     onBuiltinUICallback,
     onEmailVerify,
+    onMagicLinkCallback,
     onSignout,
   }: AuthRouteHandlers,
   { url, cookies }: RequestEvent,
@@ -349,13 +500,10 @@ async function handleAuthRoutes(
       const redirectUrl = `${config.authRoute}/oauth/callback`;
       const pkceSession = await core.then((core) => core.createPKCESession());
 
-      cookies.set(config.pkceVerifierCookieName, pkceSession.verifier, {
-        httpOnly: true,
-        path: "/",
-      });
+      setVerifierCookie(cookies, config, pkceSession.verifier);
 
       return redirect(
-        303,
+        307,
         pkceSession.getOAuthUrl(
           provider,
           redirectUrl,
@@ -401,16 +549,9 @@ async function handleAuthRoutes(
         });
       }
 
-      cookies.set(config.authCookieName, tokenData.auth_token, {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-      });
+      setAuthCookie(cookies, config, tokenData.auth_token);
 
-      cookies.set(config.pkceVerifierCookieName, "", {
-        maxAge: 0,
-        path: "/",
-      });
+      deleteCookie(cookies, config.pkceVerifierCookieName);
 
       return onOAuthCallback({
         error: null,
@@ -467,16 +608,9 @@ async function handleAuthRoutes(
         });
       }
 
-      cookies.set(config.authCookieName, tokenData.auth_token, {
-        httpOnly: true,
-        sameSite: "strict",
-        path: "/",
-      });
+      setAuthCookie(cookies, config, tokenData.auth_token);
 
-      cookies.set(config.pkceVerifierCookieName, "", {
-        maxAge: 0,
-        path: "/",
-      });
+      deleteCookie(cookies, config.pkceVerifierCookieName);
 
       return onBuiltinUICallback({
         error: null,
@@ -490,13 +624,10 @@ async function handleAuthRoutes(
     case "builtin/signup": {
       const pkceSession = await core.then((core) => core.createPKCESession());
 
-      cookies.set(config.pkceVerifierCookieName, pkceSession.verifier, {
-        httpOnly: true,
-        path: "/",
-      });
+      deleteCookie(cookies, config.pkceVerifierCookieName);
 
       return redirect(
-        303,
+        307,
         path.split("/").pop() === "signup"
           ? pkceSession.getHostedUISignupUrl()
           : pkceSession.getHostedUISigninUrl()
@@ -534,11 +665,114 @@ async function handleAuthRoutes(
         });
       }
 
-      cookies.set(config.authCookieName, tokenData.auth_token, {
-        httpOnly: true,
-        sameSite: "strict",
-        path: "/",
+      setAuthCookie(cookies, config, tokenData.auth_token);
+
+      return onEmailVerify({
+        error: null,
+        tokenData,
       });
+    }
+
+    case "magiclink/callback": {
+      if (!onMagicLinkCallback) {
+        throw new ConfigurationError(
+          `'onMagicLinkCallback' auth route handler not configured`
+        );
+      }
+
+      const error = searchParams.get("error");
+      if (error) {
+        const desc = searchParams.get("error_description");
+        return onMagicLinkCallback({
+          error: new MagicLinkFailureError(error + (desc ? `: ${desc}` : "")),
+        });
+      }
+
+      const code = searchParams.get("code");
+      const isSignUp = searchParams.get("isSignUp") === "true";
+      const verifier = cookies.get(config.pkceVerifierCookieName);
+      if (!code) {
+        return onMagicLinkCallback({
+          error: new PKCEError("no pkce code in response"),
+        });
+      }
+
+      if (!verifier) {
+        return onMagicLinkCallback({
+          error: new PKCEError("no pkce verifier cookie found"),
+        });
+      }
+
+      let tokenData: TokenData;
+      try {
+        tokenData = await (await core).getToken(code, verifier);
+      } catch (err) {
+        return onMagicLinkCallback({
+          error: err instanceof Error ? err : new Error(String(err)),
+        });
+      }
+
+      setAuthCookie(cookies, config, tokenData.auth_token);
+
+      deleteCookie(cookies, config.pkceVerifierCookieName);
+
+      return onMagicLinkCallback({
+        error: null,
+        tokenData,
+        isSignUp,
+      });
+    }
+
+    case "webauthn/signup/options": {
+      const email = searchParams.get("email");
+      if (!email) {
+        throw new InvalidDataError("email missing");
+      }
+
+      return redirect(307, (await core).getWebAuthnSignupOptionsUrl(email));
+    }
+
+    case "webauthn/signin/options": {
+      const email = searchParams.get("email");
+      if (!email) {
+        throw new InvalidDataError("email missing");
+      }
+
+      return redirect(307, (await core).getWebAuthnSigninOptionsUrl(email));
+    }
+
+    case "webauthn/verify": {
+      if (!onEmailVerify) {
+        throw new ConfigurationError(
+          `'onEmailVerify' auth route handler not configured`
+        );
+      }
+      const verificationToken = searchParams.get("verification_token");
+      const verifier = cookies.get(config.pkceVerifierCookieName);
+      if (!verificationToken) {
+        return onEmailVerify({
+          error: new PKCEError("no verification_token in response"),
+        });
+      }
+      if (!verifier) {
+        return onEmailVerify({
+          error: new PKCEError("no pkce verifier cookie found"),
+          verificationToken,
+        });
+      }
+      let tokenData: TokenData;
+      try {
+        tokenData = await (
+          await core
+        ).verifyWebAuthnSignup(verificationToken, verifier);
+      } catch (err) {
+        return onEmailVerify({
+          error: err instanceof Error ? err : new Error(String(err)),
+          verificationToken,
+        });
+      }
+
+      setAuthCookie(cookies, config, tokenData.auth_token);
 
       return onEmailVerify({
         error: null,
@@ -552,7 +786,8 @@ async function handleAuthRoutes(
           `'onSignout' auth route handler not configured`
         );
       }
-      cookies.delete(config.authCookieName, { path: "/" });
+
+      deleteCookie(cookies, config.authCookieName);
       return onSignout();
     }
 

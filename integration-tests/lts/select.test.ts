@@ -179,6 +179,21 @@ describe("select", () => {
     >(true);
   });
 
+  test("nested free object", async () => {
+    const hero = e.select(e.Hero, () => ({ limit: 1 }));
+    const villain = e.select(e.Villain, () => ({ limit: 1 }));
+
+    const q = await e
+      .select({
+        hero,
+        villain,
+      })
+      .run(client);
+
+    assert.ok(q.hero);
+    assert.ok(q.villain);
+  });
+
   test("compositionality", () => {
     // selecting a select statement should
     // default to { id }
@@ -1162,7 +1177,9 @@ SELECT __scope_0_defaultPerson {
       name: h.name,
       otherHeros: e.select(e.Hero, (h2) => ({
         name: true,
-        names: e.op(h.name, "++", h2.name),
+        name_one: h.name,
+        name_two: h2.name,
+        names_match: e.op(h.name, "=", h2.name),
         order_by: h2.name,
       })),
       order_by: h.name,
@@ -1176,7 +1193,9 @@ SELECT __scope_0_defaultPerson {
       name: h.name,
       otherHeros: heros.map((h2) => ({
         name: h2.name,
-        names: h.name + h2.name,
+        name_one: h.name,
+        name_two: h2.name,
+        names_match: h.name === h2.name,
       })),
     }));
 
@@ -1377,9 +1396,11 @@ SELECT __scope_0_defaultPerson {
 
     const result = await query.run(client);
 
+    type Result = typeof result;
+
     tc.assert<
       tc.IsExact<
-        typeof result,
+        Result,
         { xy: { a: string | null; b: number | null } | null }[]
       >
     >(true);

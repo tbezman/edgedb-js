@@ -1,6 +1,6 @@
 {
   "name": "@edgedb/generate",
-  "version": "0.4.1",
+  "version": "0.5.3",
   "description": "EdgeDB code generators for TS/JavaScript",
   "homepage": "https://edgedb.com/docs",
   "author": "EdgeDB <info@edgedb.com>",
@@ -18,10 +18,9 @@
   ],
   "bin": "dist/cli.js",
   "peerDependencies": {
-    "edgedb": "^1.4.0"
+    "edgedb": "^1.5.0"
   },
   "devDependencies": {
-    "@iarna/toml": "^2.2.5",
     "@types/jest": "^29.5.2",
     "@types/node": "^20.3.2",
     "conditional-type-checks": "^1.0.6",
@@ -34,8 +33,11 @@
     "ts-morph": "^21.0.1",
     "typescript": "^5.2.2"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@iarna/toml": "^2.2.5"
+  },
   "scripts": {
+    "typecheck": "tsc --project tsconfig.build.json --noEmit",
     "play": "tsx playground.ts",
     "build": "rm -rf dist && yarn build:cjs && yarn build:esm && yarn build:deno && chmod +x dist/cli.js && yarn syntax:make && yarn syntax:clean && tsx embedVersion.ts dist/genutil.js",
     "build:cjs": "tsc --project tsconfig.build.json",

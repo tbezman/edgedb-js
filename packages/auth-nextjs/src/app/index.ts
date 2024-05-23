@@ -12,12 +12,12 @@ import {
   NextAuth,
   NextAuthSession,
   type NextAuthOptions,
-  BuiltinProviderNames,
+  type BuiltinProviderNames,
   type CreateAuthRouteHandlers,
   _extractParams,
 } from "../shared";
 
-export * from "@edgedb/auth-core/dist/errors";
+export * from "@edgedb/auth-core/errors";
 export {
   NextAuthSession,
   type NextAuthOptions,
@@ -51,12 +51,7 @@ export class NextAppAuth extends NextAuth {
         const tokenData = await (
           await this.core
         ).signinWithEmailPassword(email, password);
-        cookies().set({
-          name: this.options.authCookieName,
-          value: tokenData.auth_token,
-          httpOnly: true,
-          sameSite: "strict",
-        });
+        this.setAuthCookie(tokenData.auth_token);
         return tokenData;
       },
       emailPasswordSignUp: async (
@@ -74,19 +69,9 @@ export class NextAppAuth extends NextAuth {
           password,
           `${this._authRoute}/emailpassword/verify`
         );
-        cookies().set({
-          name: this.options.pkceVerifierCookieName,
-          value: result.verifier,
-          httpOnly: true,
-          sameSite: "strict",
-        });
+        this.setVerifierCookie(result.verifier);
         if (result.status === "complete") {
-          cookies().set({
-            name: this.options.authCookieName,
-            value: result.tokenData.auth_token,
-            httpOnly: true,
-            sameSite: "strict",
-          });
+          this.setAuthCookie(result.tokenData.auth_token);
           return result.tokenData;
         }
         return null;
@@ -109,12 +94,7 @@ export class NextAppAuth extends NextAuth {
             this.options.baseUrl
           ).toString()
         );
-        cookies().set({
-          name: this.options.pkceVerifierCookieName,
-          value: verifier,
-          httpOnly: true,
-          sameSite: "strict",
-        });
+        this.setVerifierCookie(verifier);
       },
       emailPasswordResetPassword: async (
         data: FormData | { reset_token: string; password: string }
@@ -133,50 +113,87 @@ export class NextAppAuth extends NextAuth {
         const tokenData = await (
           await this.core
         ).resetPasswordWithResetToken(resetToken, verifier, password);
-        cookies().set({
-          name: this.options.authCookieName,
-          value: tokenData.auth_token,
-          httpOnly: true,
-          sameSite: "strict",
-        });
+        this.setAuthCookie(tokenData.auth_token);
         cookies().delete(this.options.pkceVerifierCookieName);
         return tokenData;
       },
       emailPasswordResendVerificationEmail: async (
         data: FormData | { verification_token: string } | { email: string }
       ) => {
-        let email;
-        let verificationToken;
-        try {
-          [verificationToken] = _extractParams(
-            data,
-            ["verification_token"],
-            "verification_token missing"
-          );
-        } catch (tokenError) {
-          try {
-            [email] = _extractParams(data, ["email"], "email missing");
-          } catch (emailError) {
-            const bothParamsMissing = [tokenError, emailError]
-              .map((err) => (err as Error).message)
-              .join(" and ");
-
-            throw new InvalidDataError(
-              `${bothParamsMissing}. Either one is required.`
-            );
-          }
-        }
+        const verificationToken =
+          data instanceof FormData
+            ? data.get("verification_token")
+            : "verification_token" in data
+            ? data.verification_token
+            : null;
+        const email =
+          data instanceof FormData
+            ? data.get("email")
+            : "email" in data
+            ? data.email
+            : null;
 
         if (verificationToken) {
-          await (await this.core).resendVerificationEmail(verificationToken);
-        } else if (email) {
           await (
             await this.core
+          ).resendVerificationEmail(verificationToken.toString());
+        } else if (email) {
+          const { verifier } = await (
+            await this.core
           ).resendVerificationEmailForEmail(
-            email,
+            email.toString(),
             `${this._authRoute}/emailpassword/verify`
           );
+
+          cookies().set({
+            name: this.options.pkceVerifierCookieName,
+            value: verifier,
+            httpOnly: true,
+            sameSite: "strict",
+          });
+        } else {
+          throw new InvalidDataError(
+            "either verification_token or email must be provided"
+          );
         }
+      },
+      magicLinkSignUp: async (data: FormData | { email: string }) => {
+        if (!this.options.magicLinkFailurePath) {
+          throw new ConfigurationError(
+            `'magicLinkFailurePath' option not configured`
+          );
+        }
+        const [email] = _extractParams(data, ["email"], "email missing");
+        const { verifier } = await (
+          await this.core
+        ).signupWithMagicLink(
+          email,
+          `${this._authRoute}/magiclink/callback?isSignUp=true`,
+          new URL(
+            this.options.magicLinkFailurePath,
+            this.options.baseUrl
+          ).toString()
+        );
+        this.setVerifierCookie(verifier);
+      },
+      magicLinkSignIn: async (data: FormData | { email: string }) => {
+        if (!this.options.magicLinkFailurePath) {
+          throw new ConfigurationError(
+            `'magicLinkFailurePath' option not configured`
+          );
+        }
+        const [email] = _extractParams(data, ["email"], "email missing");
+        const { verifier } = await (
+          await this.core
+        ).signinWithMagicLink(
+          email,
+          `${this._authRoute}/magiclink/callback`,
+          new URL(
+            this.options.magicLinkFailurePath,
+            this.options.baseUrl
+          ).toString()
+        );
+        this.setVerifierCookie(verifier);
       },
     };
   }

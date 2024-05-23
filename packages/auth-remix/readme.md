@@ -13,7 +13,10 @@ npm install @edgedb/auth-remix
 
 ## Setup
 
-**Prerequisites**: Before adding EdgeDB auth to your Remix app, you will first need to enable the `auth` extension in your EdgeDB schema, and have configured the extension with some providers (you can do this in CLI or EdgeDB UI). Refer to the auth extension docs for details on how to do this.
+**Prerequisites**:
+- Node v18+
+  - **Note**: Due to using the `crypto` global, you will need to start Node with `--experimental-global-webcrypto`. You can add this option to your `NODE_OPTIONS` environment variable, like `NODE_OPTIONS='--experimental-global-webcrypto'` in the appropriate `.env` file.
+- Before adding EdgeDB auth to your Remix app, you will first need to enable the `auth` extension in your EdgeDB schema, and have configured the extension with some providers (you can do this in CLI or EdgeDB UI). Refer to the auth extension docs for details on how to do this.
 
 1. Initialize the client auth helper by passing configuration options to `createClientAuth()`. This will return a `RemixClientAuth` object which you can use in your components. You can skip this part if you find it unnecessary and provide all your data through the loader (the next step), but we suggest having the client auth too and use it directly in your components to get OAuth, BuiltinUI and signout URLs.
 
@@ -41,7 +44,7 @@ export default auth;
 
    import createServerAuth from "@edgedb/auth-remix/server";
    import { createClient } from "edgedb";
-   import { options } from "./auth.client";
+   import { options } from "./auth";
 
    export const client = createClient({
      //Note: when developing locally you will need to set tls  security to insecure, because the dev server uses  self-signed certificates which will cause api calls with the fetch api to fail.
@@ -65,13 +68,13 @@ export default auth;
    // app/routes/auth.$.ts
 
    import { redirect } from "@remix-run/node";
-   import { auth } from "~/services/auth.server";
+   import auth from "~/services/auth.server";
 
    export const { loader } = auth.createAuthRouteHandlers({
-     onOAuthCallback({ error, tokenData, provider, isSignUp }) {
+     async onOAuthCallback({ error, tokenData, provider, isSignUp }) {
        return redirect("/");
      },
-     onSignout() {
+     async onSignout() {
        return redirect("/");
      },
    });
@@ -116,9 +119,9 @@ Now you have auth all configured and user's can signin/signup/etc. you can use t
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, Link } from "@remix-run/react";
+
 import auth, { client } from "~/services/auth.server";
 import clientAuth from "~/services/auth.client";
-import { transformSearchParams } from "~/utils";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const session = auth.getSession(request);

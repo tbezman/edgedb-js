@@ -3,18 +3,25 @@ import type * as edgedb from "edgedb";
 import * as tc from "conditional-type-checks";
 
 import {
+  exclusive,
+  type ExclusiveArgs,
+  type ExclusiveReturns,
   getMoviesStarring,
   type GetMoviesStarringArgs,
   type GetMoviesStarringReturns,
+  deepArrayInput,
+  type DeepArrayInputArgs,
+  freeShape,
 } from "./dbschema/queries";
-import { setupTests, teardownTests } from "./setupTeardown";
+import { type TestData, setupTests, teardownTests } from "./setupTeardown";
 
 describe("queries", () => {
   let client: edgedb.Client;
+  let data: TestData;
 
   beforeAll(async () => {
     const setup = await setupTests();
-    ({ client } = setup);
+    ({ client, data } = setup);
   });
 
   afterAll(async () => {
@@ -67,5 +74,66 @@ describe("queries", () => {
     >(true);
 
     tc.assert<tc.IsExact<GetMoviesStarringReturns, result>>(true);
+  });
+
+  test("deep array input", async () => {
+    const result = await deepArrayInput(client, {
+      deep: [
+        ["name", "Stark"],
+        ["color", "red"],
+      ] as const,
+    });
+
+    type result = typeof result;
+    tc.assert<tc.IsExact<result, Array<[string, string]>>>(true);
+
+    tc.assert<
+      tc.IsExact<
+        DeepArrayInputArgs,
+        {
+          deep: ReadonlyArray<readonly [string, string]>;
+        }
+      >
+    >(true);
+  });
+
+  test("select filtered on exclusive property", async () => {
+    const result = await exclusive(client, {
+      id: data.cap.id,
+    });
+
+    tc.assert<tc.IsExact<ExclusiveReturns, typeof result>>(true);
+
+    tc.assert<
+      tc.IsExact<
+        ExclusiveArgs,
+        {
+          id: string;
+        }
+      >
+    >(true);
+
+    assert.ok(result);
+    assert.equal(result.id, data.cap.id);
+
+    const missing = await exclusive(client, {
+      id: "00000000-0000-0000-0000-000000000000",
+    });
+
+    assert.equal(missing, null);
+  });
+
+  test("free shape", async () => {
+    const result = await freeShape(client, { data: "123" });
+
+    assert.ok(result);
+    assert.deepEqual(result, {
+      name: "arg",
+      points: 1234n,
+      data: "123",
+      arg: ["asdf"],
+      enums: ["Horror", "Action"],
+      regexp: "find me",
+    });
   });
 });

@@ -2,11 +2,12 @@
 
 > Warning: This library is still in an alpha state, and so, bugs are likely and the api's should be considered unstable and may change in future releases.
 
-> Note: Currently only the Next.js 'App Router' is supported.
-
 ### Setup
 
-**Prerequisites**: Before adding EdgeDB auth to your Next.js app, you will first need to enable the `auth` extension in your EdgeDB schema, and have configured the extension with some providers. Refer to the auth extension docs for details on how to do this.
+**Prerequisites**:
+- Node v18+
+  - **Note**: Due to using the `crypto` global, you will need to start Node with `--experimental-global-webcrypto`. You can add this option to your `NODE_OPTIONS` environment variable, like `NODE_OPTIONS='--experimental-global-webcrypto'` in the appropriate `.env` file.
+- Before adding EdgeDB auth to your Next.js app, you will first need to enable the `auth` extension in your EdgeDB schema, and have configured the extension with some providers. Refer to the auth extension docs for details on how to do this.
 
 1. Initialize the auth helper by passing an EdgeDB `Client` object to `createAuth()`, along with some configuration options. This will return a `NextAppAuth` object which you can use across your app. Similarly to the `Client` it's recommended to export this auth object from some root configuration file in your app.
 
@@ -16,10 +17,7 @@
    import { createClient } from "edgedb";
    import createAuth from "@edgedb/auth-nextjs/app";
 
-   export const client = createClient({
-     // Note: when developing locally you will need to set tls  security to insecure, because the development server uses  self-signed certificates which will cause api calls with  the fetch api to fail.
-     tlsSecurity: "insecure",
-   });
+   export const client = createClient();
 
    export const auth = createAuth(client, {
      baseUrl: "http://localhost:3000",
@@ -32,7 +30,8 @@
    - `authRoutesPath?: string`, The path to the auth route handlers, defaults to `'auth'`, see below for more details.
    - `authCookieName?: string`, The name of the cookie where the auth token will be stored, defaults to `'edgedb-session'`.
    - `pkceVerifierCookieName?: string`: The name of the cookie where the verifier for the PKCE flow will be stored, defaults to `'edgedb-pkce-verifier'`
-   - `passwordResetUrl?: string`: The url of the the password reset page; needed if you want to enable password reset emails in your app.
+   - `passwordResetPath?: string`: The path relative to the `baseUrl` of the the password reset page; needed if you want to enable password reset emails in your app.
+   - `magicLinkFailurePath?: string`: The path relative to the `baseUrl` of the page we should redirect users to if there is an error when trying to sign in with a magic link. The page will get an `error` search parameter attached with an error message. This property is required if you use the Magic Link authentication feature.
 
 2. Setup the auth route handlers, with `auth.createAuthRouteHandlers()`. Callback functions can be provided to handle various auth events, where you can define what to do in the case of successful signin's or errors. You only need to configure callback functions for the types of auth you wish to use in your app.
 
@@ -62,6 +61,9 @@
    - `onEmailPasswordReset`
    - `onEmailVerify`
    - `onBuiltinUICallback`
+   - `onWebAuthnSignIn`
+   - `onWebAuthnSignUp`
+   - `onMagicLinkCallback`
    - `onSignout`
 
    By default the handlers expect to exist under the `/auth` path in your app, however if you want to place them elsewhere, you will also need to configure the `authRoutesPath` option of `createAuth` to match.
@@ -85,6 +87,8 @@
      - `emailPasswordSendPasswordResetEmail`
      - `emailPasswordResetPassword`
      - `emailPasswordResendVerificationEmail`
+     - `magicLinkSignUp`
+     - `magicLinkSignIn`
      - `signout`
    - `isPasswordResetTokenValid(resetToken: string)`: Checks if a password reset token is still valid.
 
@@ -98,20 +102,20 @@ import { auth } from "@/edgedb";
 export default async function Home() {
   const session = await auth.getSession();
 
-  const loggedIn = await session.isSignedIn();
+  const isSignedIn = await session.isSignedIn();
 
   return (
     <main>
       <h1>Home</h1>
 
-      {loggedIn ? (
+      {isSignedIn ? (
         <>
-          <div>You are logged in</div>
+          <div>You are signed in</div>
           {await session.client.queryJSON(`...`)}
         </>
       ) : (
         <>
-          <div>You are not logged in</div>
+          <div>You are not signed in</div>
           <a href={auth.getBuiltinUIUrl()}>Sign in with Built-in UI</a>
         </>
       )}

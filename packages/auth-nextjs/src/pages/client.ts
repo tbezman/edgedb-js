@@ -4,9 +4,9 @@ import {
   NextAuthHelpers,
   type NextAuthOptions,
 } from "../shared.client";
-import { errorMapping } from "@edgedb/auth-core/dist/utils";
+import { errorMapping } from "@edgedb/auth-core/utils";
 
-export * from "@edgedb/auth-core/dist/errors";
+export * from "@edgedb/auth-core/errors";
 export { type NextAuthOptions, type BuiltinProviderNames };
 
 export default function createNextPagesClientAuth(options: NextAuthOptions) {
@@ -54,12 +54,25 @@ export class NextPagesClientAuth extends NextAuthHelpers {
       | {
           verification_token: string;
         }
+      | {
+          email: string;
+          verify_url: string;
+          challenge: string;
+        }
       | FormData
   ) {
     return await apiRequest(
       `${this._authRoute}/emailpassword/resend-verification-email`,
       data
     );
+  }
+
+  async magicLinkSignUp(data: { email: string } | FormData) {
+    return await apiRequest(`${this._authRoute}/magiclink/signup`, data);
+  }
+
+  async magicLinkSend(data: { email: string } | FormData) {
+    return await apiRequest(`${this._authRoute}/magiclink/send`, data);
   }
 }
 

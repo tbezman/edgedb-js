@@ -22,6 +22,7 @@ import {
   ConnectArgumentsParser,
   ConnectConfig,
   NormalizedConnectConfig,
+  ResolvedConnectConfigReadonly,
 } from "./conUtils";
 import * as errors from "./errors";
 import { Cardinality, Executor, OutputFormat, QueryArgs } from "./ifaces";
@@ -37,6 +38,7 @@ import Event from "./primitives/event";
 import { LifoQueue } from "./primitives/queues";
 import { BaseRawConnection } from "./baseConn";
 import { ConnectWithTimeout, retryingConnect } from "./retry";
+import { util } from "./reflection/util";
 import { Transaction } from "./transaction";
 import { sleep } from "./utils";
 
@@ -367,6 +369,11 @@ export abstract class BaseClientPool {
     );
   }
 
+  async resolveConnectionParams(): Promise<ResolvedConnectConfigReadonly> {
+    const config = await this._getNormalizedConnectConfig();
+    return config.connectionParams;
+  }
+
   async getNewConnection(): Promise<BaseRawConnection> {
     if (this._closing?.done) {
       throw new errors.InterfaceError("The client is closed");
@@ -551,6 +558,10 @@ export class Client implements Executor {
     return this;
   }
 
+  async resolveConnectionParams(): Promise<ResolvedConnectConfigReadonly> {
+    return this.pool.resolveConnectionParams();
+  }
+
   isClosed(): boolean {
     return this.pool.isClosed();
   }
@@ -646,6 +657,28 @@ export class Client implements Executor {
     const holder = await this.pool.acquireHolder(this.options);
     try {
       return await holder.queryRequiredSingleJSON(query, args);
+    } finally {
+      await holder.release();
+    }
+  }
+
+  async parse(query: string) {
+    const holder = await this.pool.acquireHolder(this.options);
+    try {
+      const cxn = await holder._getConnection();
+      const result = await cxn._parse(
+        query,
+        OutputFormat.BINARY,
+        Cardinality.MANY,
+        this.options.session
+      );
+      const cardinality = util.parseCardinality(result[0]);
+
+      return {
+        in: result[1],
+        out: result[2],
+        cardinality,
+      };
     } finally {
       await holder.release();
     }

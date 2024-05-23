@@ -19,8 +19,7 @@
 import { net, tls } from "./adapter.node";
 import { PROTO_VER, PROTO_VER_MIN, BaseRawConnection } from "./baseConn";
 import type { CodecsRegistry } from "./codecs/registry";
-import {
-  Address,
+import type {
   NormalizedConnectConfig,
   ResolvedConnectConfig,
 } from "./conUtils";
@@ -153,7 +152,10 @@ export class RawConnection extends BaseRawConnection {
       this.buffer.takeMessage() &&
       this.buffer.getMessageType() === chars.$E
     ) {
-      newErr.source = this._parseErrorMessage();
+      Object.defineProperty(newErr, "cause", {
+        enumerable: false,
+        value: this._parseErrorMessage(),
+      });
     }
 
     this._abortWithError(newErr);
@@ -161,9 +163,9 @@ export class RawConnection extends BaseRawConnection {
 
   protected _onError(err: Error): void {
     const newErr = new errors.ClientConnectionClosedError(
-      `network error: ${err}`
+      `network error: ${err}`,
+      { cause: err }
     );
-    newErr.source = err;
 
     try {
       this._abortWaiters(newErr);
@@ -253,13 +255,12 @@ export class RawConnection extends BaseRawConnection {
 
   /** @internal */
   static async connectWithTimeout(
-    addr: Address,
     config: NormalizedConnectConfig,
     registry: CodecsRegistry,
-    useTls: boolean = true
+    useTls = true
   ): Promise<RawConnection> {
     const sock = this.newSock(
-      addr,
+      config.connectionParams.address,
       useTls ? getTlsOptions(config.connectionParams) : undefined
     );
     const conn = new this(sock, config, registry);
@@ -303,7 +304,7 @@ export class RawConnection extends BaseRawConnection {
               // connecting over tls failed
               // try to connect using clear text
               try {
-                return this.connectWithTimeout(addr, config, registry, false);
+                return this.connectWithTimeout(config, registry, false);
               } catch {
                 // pass
               }
@@ -312,7 +313,8 @@ export class RawConnection extends BaseRawConnection {
             err = new errors.ClientConnectionFailedError(
               `${e.message}\n` +
                 `Attempted to connect using the following credentials:\n` +
-                `${config.connectionParams.explainConfig()}\n`
+                `${config.connectionParams.explainConfig()}\n`,
+              { cause: e }
             );
             break;
           case "ECONNREFUSED":
@@ -323,18 +325,19 @@ export class RawConnection extends BaseRawConnection {
             err = new errors.ClientConnectionFailedTemporarilyError(
               `${e.message}\n` +
                 `Attempted to connect using the following credentials:\n` +
-                `${config.connectionParams.explainConfig()}\n`
+                `${config.connectionParams.explainConfig()}\n`,
+              { cause: e }
             );
             break;
           default:
             err = new errors.ClientConnectionFailedError(
               `${e.message}\n` +
                 `Attempted to connect using the following credentials:\n` +
-                `${config.connectionParams.explainConfig()}\n`
+                `${config.connectionParams.explainConfig()}\n`,
+              { cause: e }
             );
             break;
         }
-        err.source = e;
         throw err;
       }
     } finally {

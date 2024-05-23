@@ -1,4 +1,4 @@
-import { Client } from "edgedb";
+import { type Client } from "edgedb";
 import { type TokenData } from "@edgedb/auth-core";
 import {
   type BuiltinProviderNames,
@@ -8,7 +8,7 @@ import {
   NextAuthSession,
 } from "../shared";
 
-export * from "@edgedb/auth-core/dist/errors";
+export * from "@edgedb/auth-core/errors";
 export {
   NextAuthSession,
   type NextAuthOptions,
